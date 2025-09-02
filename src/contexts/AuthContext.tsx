@@ -20,6 +20,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
+  signUpAdmin: (email: string, password: string, fullName: string, adminCode?: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
 }
@@ -146,6 +147,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { error };
   };
 
+  const signUpAdmin = async (email: string, password: string, fullName: string, adminCode?: string) => {
+    const redirectUrl = `${window.location.origin}/`;
+    
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: redirectUrl,
+        data: {
+          full_name: fullName,
+          user_role: 'admin',
+          admin_code: adminCode || null,
+        },
+      },
+    });
+    
+    if (error) {
+      toast({
+        title: "Admin Sign Up Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Admin Account Created",
+        description: "Please check your email to verify your admin account.",
+      });
+    }
+    
+    return { error };
+  };
+
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
@@ -191,6 +224,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loading,
     signIn,
     signUp,
+    signUpAdmin,
     signOut,
     updateProfile,
   };
