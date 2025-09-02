@@ -14,6 +14,9 @@ import Attendance from "./pages/Attendance";
 import Syllabus from "./pages/Syllabus";
 import PYQs from "./pages/PYQs";
 import Notices from "./pages/Notices";
+import Students from "./pages/Students";
+import FileUpload from "./pages/FileUpload";
+import Analytics from "./pages/Analytics";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -35,6 +38,9 @@ const App = () => (
               <Route path="/syllabus" element={<DashboardLayout><Syllabus /></DashboardLayout>} />
               <Route path="/pyqs" element={<DashboardLayout><PYQs /></DashboardLayout>} />
               <Route path="/notices" element={<DashboardLayout><Notices /></DashboardLayout>} />
+              <Route path="/students" element={<DashboardLayout><Students /></DashboardLayout>} />
+              <Route path="/upload" element={<DashboardLayout><FileUpload /></DashboardLayout>} />
+              <Route path="/analytics" element={<DashboardLayout><Analytics /></DashboardLayout>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
