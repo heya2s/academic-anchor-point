@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { GraduationCap, Loader2 } from "lucide-react";
+import { GraduationCap, Loader2, Shield } from "lucide-react";
 
 export default function AuthPage() {
   const { user, signIn, signUp, loading: authLoading } = useAuth();
@@ -173,12 +173,24 @@ export default function AuthPage() {
                       Creating Account...
                     </>
                   ) : (
-                    "Create Account"
+                    "Create Student Account"
                   )}
                 </Button>
               </form>
             </TabsContent>
           </Tabs>
+          
+          <div className="mt-6 text-center">
+            <p className="text-sm text-muted-foreground mb-2">
+              Need admin access?
+            </p>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/admin-signup" className="flex items-center">
+                <Shield className="h-4 w-4 mr-2" />
+                Create Admin Account
+              </Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

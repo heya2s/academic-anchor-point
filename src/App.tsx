@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import Index from "./pages/Index";
 import AuthPage from "./components/auth/AuthPage";
+import AdminSignup from "./pages/AdminSignup";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Attendance from "./pages/Attendance";
@@ -32,6 +33,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<AuthPage />} />
+              <Route path="/admin-signup" element={<AdminSignup />} />
               <Route path="/dashboard" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
               <Route path="/profile" element={<DashboardLayout><Profile /></DashboardLayout>} />
               <Route path="/attendance" element={<DashboardLayout><Attendance /></DashboardLayout>} />
