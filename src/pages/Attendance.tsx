@@ -3,7 +3,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, TrendingUp, Target, Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import { Calendar, TrendingUp, Target, Clock, Plus, Edit, Trash2, Users, CheckCircle } from "lucide-react";
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from "date-fns";
 
 interface AttendanceRecord {
@@ -20,6 +27,24 @@ interface AttendanceStats {
   percentage: number;
 }
 
+interface Student {
+  id: string;
+  name: string;
+  student_id: string;
+  roll_no: string;
+  class: string;
+  email: string;
+}
+
+interface AttendanceWithStudent {
+  id: string;
+  date: string;
+  status: 'Present' | 'Absent';
+  student_id: string;
+  created_at: string;
+  student: Student;
+}
+
 export default function Attendance() {
   const { profile, userRole } = useAuth();
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
@@ -32,9 +57,21 @@ export default function Attendance() {
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState(new Date());
 
+  // Admin states
+  const [students, setStudents] = useState<Student[]>([]);
+  const [allAttendanceRecords, setAllAttendanceRecords] = useState<AttendanceWithStudent[]>([]);
+  const [selectedStudent, setSelectedStudent] = useState<string>('');
+  const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const [selectedStatus, setSelectedStatus] = useState<'Present' | 'Absent'>('Present');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<AttendanceWithStudent | null>(null);
+
   useEffect(() => {
     if (userRole === 'student') {
       fetchAttendanceData();
+    } else if (userRole === 'admin') {
+      fetchStudents();
+      fetchAllAttendanceRecords();
     }
   }, [profile, userRole]);
 
@@ -93,19 +130,320 @@ export default function Attendance() {
     );
   };
 
+  // Admin functions
+  const fetchStudents = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('students')
+        .select('*')
+        .order('name');
+      
+      if (error) throw error;
+      setStudents(data || []);
+    } catch (error) {
+      console.error('Error fetching students:', error);
+      toast.error('Failed to fetch students');
+    }
+  };
+
+  const fetchAllAttendanceRecords = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('attendance')
+        .select(`
+          *,
+          student:students(*)
+        `)
+        .order('date', { ascending: false });
+      
+      if (error) throw error;
+      setAllAttendanceRecords(data || []);
+    } catch (error) {
+      console.error('Error fetching attendance records:', error);
+      toast.error('Failed to fetch attendance records');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddAttendance = async () => {
+    if (!selectedStudent || !selectedDate) {
+      toast.error('Please select a student and date');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('attendance')
+        .insert({
+          student_id: selectedStudent,
+          date: selectedDate,
+          status: selectedStatus
+        });
+
+      if (error) throw error;
+      
+      toast.success('Attendance marked successfully');
+      setIsDialogOpen(false);
+      setSelectedStudent('');
+      setSelectedDate(format(new Date(), 'yyyy-MM-dd'));
+      setSelectedStatus('Present');
+      fetchAllAttendanceRecords();
+    } catch (error: any) {
+      console.error('Error adding attendance:', error);
+      if (error.code === '23505') {
+        toast.error('Attendance already exists for this student on this date');
+      } else {
+        toast.error('Failed to mark attendance');
+      }
+    }
+  };
+
+  const handleEditAttendance = async () => {
+    if (!editingRecord) return;
+
+    try {
+      const { error } = await supabase
+        .from('attendance')
+        .update({
+          status: selectedStatus
+        })
+        .eq('id', editingRecord.id);
+
+      if (error) throw error;
+      
+      toast.success('Attendance updated successfully');
+      setEditingRecord(null);
+      setIsDialogOpen(false);
+      fetchAllAttendanceRecords();
+    } catch (error) {
+      console.error('Error updating attendance:', error);
+      toast.error('Failed to update attendance');
+    }
+  };
+
+  const handleDeleteAttendance = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('attendance')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      toast.success('Attendance record deleted');
+      fetchAllAttendanceRecords();
+    } catch (error) {
+      console.error('Error deleting attendance:', error);
+      toast.error('Failed to delete attendance record');
+    }
+  };
+
+  const openEditDialog = (record: AttendanceWithStudent) => {
+    setEditingRecord(record);
+    setSelectedStatus(record.status);
+    setIsDialogOpen(true);
+  };
+
   if (userRole === 'admin') {
+    if (loading) {
+      return (
+        <div className="space-y-6">
+          <div className="animate-pulse">
+            <div className="h-8 bg-muted rounded w-1/4 mb-4"></div>
+            <div className="h-32 bg-muted rounded-lg mb-6"></div>
+            <div className="h-64 bg-muted rounded-lg"></div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Attendance Management</h1>
-          <p className="text-muted-foreground">Manage student attendance records</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Attendance Management</h1>
+            <p className="text-muted-foreground">Manage student attendance records</p>
+          </div>
+          
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center space-x-2">
+                <Plus className="h-4 w-4" />
+                <span>Mark Attendance</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>
+                  {editingRecord ? 'Edit Attendance' : 'Mark Attendance'}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                {!editingRecord && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="student">Student</Label>
+                      <Select value={selectedStudent} onValueChange={setSelectedStudent}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a student" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {students.map((student) => (
+                            <SelectItem key={student.id} value={student.id}>
+                              {student.name} ({student.student_id})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="date">Date</Label>
+                      <Input
+                        id="date"
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                      />
+                    </div>
+                  </>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select value={selectedStatus} onValueChange={(value: 'Present' | 'Absent') => setSelectedStatus(value)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Present">Present</SelectItem>
+                      <SelectItem value="Absent">Absent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Button 
+                  onClick={editingRecord ? handleEditAttendance : handleAddAttendance}
+                  className="w-full"
+                >
+                  {editingRecord ? 'Update Attendance' : 'Mark Attendance'}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
-        
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <Card className="campus-stats-card">
+            <div className="p-2 bg-[hsl(var(--campus-blue))]/10 rounded-full">
+              <Users className="h-6 w-6 text-[hsl(var(--campus-blue))]" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Total Students</p>
+              <p className="text-2xl font-bold">{students.length}</p>
+            </div>
+          </Card>
+
+          <Card className="campus-stats-card">
+            <div className="p-2 bg-primary/10 rounded-full">
+              <CheckCircle className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Total Records</p>
+              <p className="text-2xl font-bold">{allAttendanceRecords.length}</p>
+            </div>
+          </Card>
+
+          <Card className="campus-stats-card">
+            <div className="p-2 bg-[hsl(var(--campus-success))]/10 rounded-full">
+              <TrendingUp className="h-6 w-6 text-[hsl(var(--campus-success))]" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Present Today</p>
+              <p className="text-2xl font-bold">
+                {allAttendanceRecords.filter(r => 
+                  r.date === format(new Date(), 'yyyy-MM-dd') && r.status === 'Present'
+                ).length}
+              </p>
+            </div>
+          </Card>
+
+          <Card className="campus-stats-card">
+            <div className="p-2 bg-destructive/10 rounded-full">
+              <Clock className="h-6 w-6 text-destructive" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Absent Today</p>
+              <p className="text-2xl font-bold">
+                {allAttendanceRecords.filter(r => 
+                  r.date === format(new Date(), 'yyyy-MM-dd') && r.status === 'Absent'
+                ).length}
+              </p>
+            </div>
+          </Card>
+        </div>
+
+        {/* Attendance Records Table */}
         <Card className="campus-card">
-          <CardContent className="p-6">
-            <p className="text-center text-muted-foreground">
-              Admin attendance management features coming soon...
-            </p>
+          <CardHeader>
+            <CardTitle>Attendance Records</CardTitle>
+            <CardDescription>Manage all student attendance records</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Student Name</TableHead>
+                  <TableHead>Student ID</TableHead>
+                  <TableHead>Class</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {allAttendanceRecords.map((record) => (
+                  <TableRow key={record.id}>
+                    <TableCell className="font-medium">
+                      {format(parseISO(record.date), 'MMM d, yyyy')}
+                    </TableCell>
+                    <TableCell>{record.student.name}</TableCell>
+                    <TableCell>{record.student.student_id}</TableCell>
+                    <TableCell>{record.student.class}</TableCell>
+                    <TableCell>
+                      <Badge className={record.status === 'Present' ? 'campus-attendance-present' : 'campus-attendance-absent'}>
+                        {record.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openEditDialog(record)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteAttendance(record.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {allAttendanceRecords.length === 0 && (
+              <p className="text-center text-muted-foreground py-8">
+                No attendance records found
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
