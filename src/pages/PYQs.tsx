@@ -4,8 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { FileText, Download, Search, Filter, Calendar, Trophy } from "lucide-react";
+import { FileText, Download, Search, Filter, Calendar, Trophy, Upload } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import { useAuth } from "@/contexts/AuthContext";
+import { Link } from "react-router-dom";
 
 interface PYQFile {
   id: string;
@@ -18,6 +20,7 @@ interface PYQFile {
 }
 
 export default function PYQs() {
+  const { userRole } = useAuth();
   const [pyqFiles, setPyqFiles] = useState<PYQFile[]>([]);
   const [filteredFiles, setFilteredFiles] = useState<PYQFile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,9 +137,19 @@ export default function PYQs() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Previous Year Questions</h1>
-        <p className="text-muted-foreground">Practice with past examination papers</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Previous Year Questions</h1>
+          <p className="text-muted-foreground">Practice with past examination papers</p>
+        </div>
+        {userRole === 'admin' && (
+          <Link to="/upload">
+            <Button className="campus-button-primary">
+              <Upload className="h-4 w-4 mr-2" />
+              Upload PYQs
+            </Button>
+          </Link>
+        )}
       </div>
 
       {/* Search and Filter */}

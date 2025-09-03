@@ -4,8 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { BookOpen, Download, Search, Filter, Calendar } from "lucide-react";
+import { BookOpen, Download, Search, Filter, Calendar, Upload } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import { useAuth } from "@/contexts/AuthContext";
+import { Link } from "react-router-dom";
 
 interface SyllabusFile {
   id: string;
@@ -17,6 +19,7 @@ interface SyllabusFile {
 }
 
 export default function Syllabus() {
+  const { userRole } = useAuth();
   const [syllabusFiles, setSyllabusFiles] = useState<SyllabusFile[]>([]);
   const [filteredFiles, setFilteredFiles] = useState<SyllabusFile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -121,9 +124,19 @@ export default function Syllabus() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Syllabus</h1>
-        <p className="text-muted-foreground">Access course materials and syllabus documents</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Syllabus</h1>
+          <p className="text-muted-foreground">Access course materials and syllabus documents</p>
+        </div>
+        {userRole === 'admin' && (
+          <Link to="/upload">
+            <Button className="campus-button-primary">
+              <Upload className="h-4 w-4 mr-2" />
+              Upload Syllabus
+            </Button>
+          </Link>
+        )}
       </div>
 
       {/* Search and Filter */}
