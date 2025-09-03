@@ -90,8 +90,10 @@ export default function Syllabus() {
   };
 
   const getUniqueSemesters = () => {
-    const semesters = [...new Set(syllabusFiles.map(file => file.semester))];
-    return semesters.sort();
+    const predefinedSemesters = ['Semester 1st', 'Semester 2nd', 'Semester 3rd', 'Semester 4th', 'Semester 5th', 'Semester 6th'];
+    const dbSemesters = [...new Set(syllabusFiles.map(file => file.semester))];
+    const allSemesters = [...new Set([...predefinedSemesters, ...dbSemesters])];
+    return allSemesters.sort();
   };
 
   const groupFilesBySemester = () => {

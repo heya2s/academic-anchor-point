@@ -97,13 +97,18 @@ export default function PYQs() {
   };
 
   const getUniqueSemesters = () => {
-    const semesters = [...new Set(pyqFiles.map(file => file.semester))];
-    return semesters.sort();
+    const predefinedSemesters = ['Semester 1st', 'Semester 2nd', 'Semester 3rd', 'Semester 4th', 'Semester 5th', 'Semester 6th'];
+    const dbSemesters = [...new Set(pyqFiles.map(file => file.semester))];
+    const allSemesters = [...new Set([...predefinedSemesters, ...dbSemesters])];
+    return allSemesters.sort();
   };
 
   const getUniqueYears = () => {
-    const years = [...new Set(pyqFiles.map(file => file.year).filter(Boolean))];
-    return years.sort((a, b) => (b as number) - (a as number));
+    const currentYear = new Date().getFullYear();
+    const predefinedYears = Array.from({ length: 10 }, (_, i) => currentYear - i);
+    const dbYears = [...new Set(pyqFiles.map(file => file.year).filter(Boolean))];
+    const allYears = [...new Set([...predefinedYears, ...dbYears])];
+    return allYears.sort((a, b) => (b as number) - (a as number));
   };
 
   const groupFilesByYear = () => {
