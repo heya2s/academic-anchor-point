@@ -6,7 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Bell, Plus, Search, Calendar, MessageSquare } from "lucide-react";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Bell, Plus, Search, Calendar, MessageSquare, Edit, Trash2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { toast } from "@/hooks/use-toast";
 
@@ -25,6 +34,8 @@ export default function Notices() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [selectedNotice, setSelectedNotice] = useState<Notice | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     message: ''
@@ -99,6 +110,74 @@ export default function Notices() {
         variant: "destructive",
       });
     }
+  };
+
+  const handleEditNotice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedNotice) return;
+
+    try {
+      const { error } = await supabase
+        .from('notices')
+        .update({
+          title: formData.title,
+          message: formData.message
+        })
+        .eq('id', selectedNotice.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Notice Updated",
+        description: "The notice has been updated successfully.",
+      });
+
+      setFormData({ title: '', message: '' });
+      setShowEditDialog(false);
+      setSelectedNotice(null);
+      fetchNotices();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteNotice = async (notice: Notice) => {
+    if (!confirm(`Are you sure you want to delete "${notice.title}"?`)) return;
+
+    try {
+      const { error } = await supabase
+        .from('notices')
+        .delete()
+        .eq('id', notice.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Notice Deleted",
+        description: "The notice has been deleted successfully.",
+      });
+
+      fetchNotices();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const openEditDialog = (notice: Notice) => {
+    setSelectedNotice(notice);
+    setFormData({
+      title: notice.title,
+      message: notice.message
+    });
+    setShowEditDialog(true);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -232,9 +311,30 @@ export default function Notices() {
                       </div>
                     </div>
                   </div>
-                  <Badge className="bg-primary/10 text-primary">
-                    Announcement
-                  </Badge>
+                  <div className="flex items-center space-x-2">
+                    <Badge className="bg-primary/10 text-primary">
+                      Announcement
+                    </Badge>
+                    {userRole === 'admin' && (
+                      <div className="flex space-x-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openEditDialog(notice)}
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => handleDeleteNotice(notice)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -256,6 +356,52 @@ export default function Notices() {
           </Card>
         )}
       </div>
+
+      {/* Edit Notice Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Notice</DialogTitle>
+            <DialogDescription>
+              Update the notice information below.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEditNotice} className="space-y-4">
+            <div>
+              <label htmlFor="edit-title" className="block text-sm font-medium mb-2">
+                Notice Title
+              </label>
+              <Input
+                id="edit-title"
+                name="title"
+                value={formData.title}
+                onChange={handleInputChange}
+                placeholder="Enter notice title..."
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="edit-message" className="block text-sm font-medium mb-2">
+                Notice Message
+              </label>
+              <Textarea
+                id="edit-message"
+                name="message"
+                value={formData.message}
+                onChange={handleInputChange}
+                placeholder="Enter notice message..."
+                rows={4}
+                required
+              />
+            </div>
+            <DialogFooter>
+              <Button type="submit" className="campus-button-primary">
+                Update Notice
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

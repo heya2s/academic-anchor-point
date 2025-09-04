@@ -4,10 +4,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { BookOpen, Download, Search, Filter, Calendar, Upload } from "lucide-react";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { BookOpen, Download, Search, Filter, Calendar, Upload, Edit, Trash2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
+import { toast } from "@/hooks/use-toast";
 
 interface SyllabusFile {
   id: string;
@@ -25,6 +34,12 @@ export default function Syllabus() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSemester, setSelectedSemester] = useState('all');
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<SyllabusFile | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    subject: '',
+    semester: ''
+  });
 
   useEffect(() => {
     fetchSyllabusFiles();
@@ -105,6 +120,88 @@ export default function Syllabus() {
       grouped[file.semester].push(file);
     });
     return grouped;
+  };
+
+  const handleEditFile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFile) return;
+
+    try {
+      const { error } = await supabase
+        .from('syllabus')
+        .update({
+          subject: editFormData.subject,
+          semester: editFormData.semester
+        })
+        .eq('id', selectedFile.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "File Updated",
+        description: "The syllabus file has been updated successfully.",
+      });
+
+      setShowEditDialog(false);
+      setSelectedFile(null);
+      fetchSyllabusFiles();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteFile = async (file: SyllabusFile) => {
+    if (!confirm(`Are you sure you want to delete "${file.subject}"?`)) return;
+
+    try {
+      // Delete file from storage
+      const { error: storageError } = await supabase.storage
+        .from('syllabus')
+        .remove([file.file_url]);
+
+      if (storageError) throw storageError;
+
+      // Delete record from database
+      const { error } = await supabase
+        .from('syllabus')
+        .delete()
+        .eq('id', file.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "File Deleted",
+        description: "The syllabus file has been deleted successfully.",
+      });
+
+      fetchSyllabusFiles();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const openEditDialog = (file: SyllabusFile) => {
+    setSelectedFile(file);
+    setEditFormData({
+      subject: file.subject,
+      semester: file.semester
+    });
+    setShowEditDialog(true);
+  };
+
+  const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setEditFormData({
+      ...editFormData,
+      [e.target.name]: e.target.value
+    });
   };
 
   if (loading) {
@@ -204,14 +301,35 @@ export default function Syllabus() {
                           <Calendar className="h-3 w-3 mr-1" />
                           {format(parseISO(file.created_at), 'MMM d, yyyy')}
                         </div>
-                        <Button
-                          size="sm"
-                          onClick={() => handleDownload(file)}
-                          className="campus-button-primary"
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          Download
-                        </Button>
+                        <div className="flex space-x-2">
+                          <Button
+                            size="sm"
+                            onClick={() => handleDownload(file)}
+                            className="campus-button-primary"
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            Download
+                          </Button>
+                          {userRole === 'admin' && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openEditDialog(file)}
+                              >
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => handleDeleteFile(file)}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -233,6 +351,56 @@ export default function Syllabus() {
           </CardContent>
         </Card>
       )}
+
+      {/* Edit File Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Syllabus File</DialogTitle>
+            <DialogDescription>
+              Update the file information below.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEditFile} className="space-y-4">
+            <div>
+              <label htmlFor="edit-subject" className="block text-sm font-medium mb-2">
+                Subject
+              </label>
+              <Input
+                id="edit-subject"
+                name="subject"
+                value={editFormData.subject}
+                onChange={handleEditInputChange}
+                placeholder="Enter subject name..."
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="edit-semester" className="block text-sm font-medium mb-2">
+                Semester
+              </label>
+              <select
+                id="edit-semester"
+                name="semester"
+                value={editFormData.semester}
+                onChange={handleEditInputChange}
+                className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground"
+                required
+              >
+                <option value="">Select semester...</option>
+                {getUniqueSemesters().map(semester => (
+                  <option key={semester} value={semester}>{semester}</option>
+                ))}
+              </select>
+            </div>
+            <DialogFooter>
+              <Button type="submit" className="campus-button-primary">
+                Update File
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -59,8 +59,7 @@ export default function Students() {
     student_id: '',
     roll_no: '',
     class: '',
-    email: '',
-    user_id: ''
+    email: ''
   });
 
   useEffect(() => {
@@ -200,8 +199,7 @@ export default function Students() {
       student_id: student.student_id,
       roll_no: student.roll_no,
       class: student.class,
-      email: student.email,
-      user_id: student.user_id
+      email: student.email
     });
     setShowEditDialog(true);
   };
@@ -212,8 +210,7 @@ export default function Students() {
       student_id: '',
       roll_no: '',
       class: '',
-      email: '',
-      user_id: ''
+      email: ''
     });
   };
 
@@ -326,16 +323,6 @@ export default function Students() {
                     value={formData.email}
                     onChange={handleInputChange}
                     placeholder="Email address"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">User ID</label>
-                  <Input
-                    name="user_id"
-                    value={formData.user_id}
-                    onChange={handleInputChange}
-                    placeholder="Auth user ID"
                     required
                   />
                 </div>
@@ -512,7 +499,6 @@ export default function Students() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-2">Email</label>
                 <Input
@@ -524,17 +510,6 @@ export default function Students() {
                   required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">User ID</label>
-                <Input
-                  name="user_id"
-                  value={formData.user_id}
-                  onChange={handleInputChange}
-                  placeholder="Auth user ID"
-                  required
-                />
-              </div>
-            </div>
             <DialogFooter>
               <Button type="submit" className="campus-button-primary">
                 Update Student
