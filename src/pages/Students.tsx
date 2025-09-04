@@ -74,13 +74,49 @@ export default function Students() {
 
   const fetchStudents = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch from students table
+      const { data: studentsData, error: studentsError } = await supabase
         .from('students')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setStudents(data || []);
+      if (studentsError) throw studentsError;
+
+      // Fetch from profiles table for users who signed up as students
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .not('student_id', 'is', null)
+        .order('created_at', { ascending: false });
+
+      if (profilesError) throw profilesError;
+
+      // Combine both datasets and remove duplicates
+      const allStudents: Student[] = [];
+      
+      // Add students from students table
+      if (studentsData) {
+        allStudents.push(...studentsData);
+      }
+
+      // Add students from profiles table (convert format)
+      if (profilesData) {
+        const profileStudents: Student[] = profilesData
+          .filter(profile => !studentsData?.some(student => student.email === profile.user_id)) // Avoid duplicates
+          .map(profile => ({
+            id: profile.id,
+            name: profile.full_name,
+            student_id: profile.student_id || '',
+            roll_no: profile.roll_number || '',
+            class: profile.class || '',
+            email: profile.user_id, // This will show user_id for now
+            user_id: profile.user_id,
+            created_at: profile.created_at
+          }));
+        allStudents.push(...profileStudents);
+      }
+
+      setStudents(allStudents);
     } catch (error) {
       console.error('Error fetching students:', error);
       toast({
