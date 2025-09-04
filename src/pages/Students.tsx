@@ -115,7 +115,7 @@ export default function Students() {
     try {
       const { error } = await supabase
         .from('students')
-        .insert([formData]);
+        .insert([{ ...formData, user_id: null }]);
 
       if (error) throw error;
 
