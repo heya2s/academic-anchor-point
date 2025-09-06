@@ -18,6 +18,12 @@ import {
 import { Bell, Plus, Search, Calendar, MessageSquare, Edit, Trash2 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { toast } from "@/hooks/use-toast";
+import { 
+  sanitizeHTML, 
+  validateLength, 
+  sanitizeFormData, 
+  VALIDATION_LIMITS 
+} from "@/utils/validation";
 
 interface Notice {
   id: string;
@@ -40,6 +46,7 @@ export default function Notices() {
     title: '',
     message: ''
   });
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchNotices();
@@ -53,7 +60,7 @@ export default function Notices() {
     try {
       const { data, error } = await supabase
         .from('notices')
-        .select('*')
+        .select('*') // Always select all fields, we'll handle hiding admin info in the UI
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -78,17 +85,40 @@ export default function Notices() {
     setFilteredNotices(filtered);
   };
 
+  const validateNoticeForm = (data: { title: string; message: string }): Record<string, string> => {
+    const errors: Record<string, string> = {};
+    
+    const titleError = validateLength(data.title, VALIDATION_LIMITS.NOTICE_TITLE);
+    if (titleError) errors.title = titleError;
+    
+    const messageError = validateLength(data.message, VALIDATION_LIMITS.NOTICE_MESSAGE);
+    if (messageError) errors.message = messageError;
+    
+    return errors;
+  };
+
   const handleCreateNotice = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || userRole !== 'admin') return;
+
+    // Validate and sanitize form data
+    const sanitizedData = sanitizeFormData(formData) as { title: string; message: string };
+    const errors = validateNoticeForm(sanitizedData);
+    
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      return;
+    }
+    
+    setValidationErrors({});
 
     try {
       const { error } = await supabase
         .from('notices')
         .insert([
           {
-            title: formData.title,
-            message: formData.message,
+            title: sanitizedData.title,
+            message: sanitizedData.message,
             posted_by: user.id
           }
         ]);
@@ -116,12 +146,23 @@ export default function Notices() {
     e.preventDefault();
     if (!selectedNotice) return;
 
+    // Validate and sanitize form data
+    const sanitizedData = sanitizeFormData(formData) as { title: string; message: string };
+    const errors = validateNoticeForm(sanitizedData);
+    
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      return;
+    }
+    
+    setValidationErrors({});
+
     try {
       const { error } = await supabase
         .from('notices')
         .update({
-          title: formData.title,
-          message: formData.message
+          title: sanitizedData.title,
+          message: sanitizedData.message
         })
         .eq('id', selectedNotice.id);
 
@@ -254,8 +295,12 @@ export default function Notices() {
                   value={formData.title}
                   onChange={handleInputChange}
                   placeholder="Enter notice title..."
+                  maxLength={VALIDATION_LIMITS.NOTICE_TITLE.max}
                   required
                 />
+                {validationErrors.title && (
+                  <p className="text-sm text-destructive mt-1">{validationErrors.title}</p>
+                )}
               </div>
               <div>
                 <label htmlFor="message" className="block text-sm font-medium mb-2">
@@ -267,9 +312,13 @@ export default function Notices() {
                   value={formData.message}
                   onChange={handleInputChange}
                   placeholder="Enter notice message..."
+                  maxLength={VALIDATION_LIMITS.NOTICE_MESSAGE.max}
                   rows={4}
                   required
                 />
+                {validationErrors.message && (
+                  <p className="text-sm text-destructive mt-1">{validationErrors.message}</p>
+                )}
               </div>
               <div className="flex space-x-2">
                 <Button type="submit" className="campus-button-primary">
@@ -338,7 +387,7 @@ export default function Notices() {
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-foreground whitespace-pre-wrap">{notice.message}</p>
+                <p className="text-foreground whitespace-pre-wrap">{sanitizeHTML(notice.message)}</p>
               </CardContent>
             </Card>
           ))
@@ -377,8 +426,12 @@ export default function Notices() {
                 value={formData.title}
                 onChange={handleInputChange}
                 placeholder="Enter notice title..."
+                maxLength={VALIDATION_LIMITS.NOTICE_TITLE.max}
                 required
               />
+              {validationErrors.title && (
+                <p className="text-sm text-destructive mt-1">{validationErrors.title}</p>
+              )}
             </div>
             <div>
               <label htmlFor="edit-message" className="block text-sm font-medium mb-2">
@@ -390,9 +443,13 @@ export default function Notices() {
                 value={formData.message}
                 onChange={handleInputChange}
                 placeholder="Enter notice message..."
+                maxLength={VALIDATION_LIMITS.NOTICE_MESSAGE.max}
                 rows={4}
                 required
               />
+              {validationErrors.message && (
+                <p className="text-sm text-destructive mt-1">{validationErrors.message}</p>
+              )}
             </div>
             <DialogFooter>
               <Button type="submit" className="campus-button-primary">

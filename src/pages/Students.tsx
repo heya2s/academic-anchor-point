@@ -33,6 +33,14 @@ import {
   Hash
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { 
+  validateLength, 
+  validateStudentId, 
+  validateRollNumber,
+  validateEmail,
+  sanitizeFormData, 
+  VALIDATION_LIMITS 
+} from "@/utils/validation";
 
 interface Student {
   id: string;
@@ -61,6 +69,7 @@ export default function Students() {
     class: '',
     email: ''
   });
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (userRole === 'admin') {
@@ -145,13 +154,45 @@ export default function Students() {
     setFilteredStudents(filtered);
   };
 
+  const validateStudentForm = (data: typeof formData): Record<string, string> => {
+    const errors: Record<string, string> = {};
+    
+    const nameError = validateLength(data.name, VALIDATION_LIMITS.FULL_NAME);
+    if (nameError) errors.name = nameError;
+    
+    const studentIdError = validateStudentId(data.student_id);
+    if (studentIdError) errors.student_id = studentIdError;
+    
+    const rollNoError = validateRollNumber(data.roll_no);
+    if (rollNoError) errors.roll_no = rollNoError;
+    
+    const classError = validateLength(data.class, VALIDATION_LIMITS.CLASS_NAME);
+    if (classError) errors.class = classError;
+    
+    const emailError = validateEmail(data.email);
+    if (emailError) errors.email = emailError;
+    
+    return errors;
+  };
+
   const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate and sanitize form data
+    const sanitizedData = sanitizeFormData(formData) as typeof formData;
+    const errors = validateStudentForm(sanitizedData);
+    
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      return;
+    }
+    
+    setValidationErrors({});
     
     try {
       const { error } = await supabase
         .from('students')
-        .insert([{ ...formData, user_id: null }]);
+        .insert([{ ...sanitizedData, user_id: null }]);
 
       if (error) throw error;
 
@@ -176,10 +217,21 @@ export default function Students() {
     e.preventDefault();
     if (!selectedStudent) return;
 
+    // Validate and sanitize form data
+    const sanitizedData = sanitizeFormData(formData) as typeof formData;
+    const errors = validateStudentForm(sanitizedData);
+    
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      return;
+    }
+    
+    setValidationErrors({});
+
     try {
       const { error } = await supabase
         .from('students')
-        .update(formData)
+        .update(sanitizedData)
         .eq('id', selectedStudent.id);
 
       if (error) throw error;
@@ -248,6 +300,7 @@ export default function Students() {
       class: '',
       email: ''
     });
+    setValidationErrors({});
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

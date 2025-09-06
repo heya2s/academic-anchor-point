@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { sanitizeFileName } from "@/utils/validation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,8 +78,8 @@ export default function FileUpload() {
       ));
 
       const fileExt = uploadItem.file.name.split('.').pop();
-      const fileName = `${uploadItem.subject}_${uploadItem.semester}${uploadItem.year ? `_${uploadItem.year}` : ''}_${Date.now()}.${fileExt}`;
-      const filePath = `${uploadItem.type}/${fileName}`;
+      const sanitizedFileName = sanitizeFileName(`${uploadItem.subject}_${uploadItem.semester}${uploadItem.year ? `_${uploadItem.year}` : ''}_${Date.now()}.${fileExt}`);
+      const filePath = `${uploadItem.type}/${sanitizedFileName}`;
 
       // Upload file to storage
       const { data: uploadData, error: uploadError } = await supabase.storage
