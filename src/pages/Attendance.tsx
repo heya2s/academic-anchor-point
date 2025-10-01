@@ -34,7 +34,6 @@ interface Student {
   student_id: string | null;
   roll_number: string | null;
   class: string | null;
-  email: string | null;
 }
 
 interface AttendanceWithStudent {
@@ -134,8 +133,7 @@ export default function Attendance() {
           full_name,
           student_id,
           roll_number,
-          class,
-          email
+          class
         `)
         .order('full_name');
       
@@ -164,16 +162,30 @@ export default function Attendance() {
 
   const fetchAllAttendanceRecords = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: attendanceData, error } = await supabase
         .from('attendance')
-        .select(`
-          *,
-          profile:profiles!attendance_student_id_fkey(*)
-        `)
+        .select('*')
         .order('date', { ascending: false });
       
       if (error) throw error;
-      setAllAttendanceRecords(data || []);
+      
+      // Fetch profiles for each attendance record
+      const recordsWithProfiles = await Promise.all(
+        (attendanceData || []).map(async (record) => {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('id, user_id, full_name, student_id, roll_number, class')
+            .eq('user_id', record.student_id)
+            .maybeSingle();
+          
+          return {
+            ...record,
+            profile: profileData
+          };
+        })
+      );
+      
+      setAllAttendanceRecords(recordsWithProfiles);
     } catch (error) {
       console.error('Error fetching attendance records:', error);
       toast.error('Failed to fetch attendance records');

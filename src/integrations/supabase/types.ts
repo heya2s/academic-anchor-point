@@ -39,15 +39,7 @@ export type Database = {
           student_id?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "attendance_student_id_fkey"
-            columns: ["student_id"]
-            isOneToOne: false
-            referencedRelation: "students"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       notices: {
         Row: {
@@ -80,6 +72,7 @@ export type Database = {
         Row: {
           class: string | null
           created_at: string
+          email: string | null
           full_name: string
           id: string
           roll_number: string | null
@@ -90,6 +83,7 @@ export type Database = {
         Insert: {
           class?: string | null
           created_at?: string
+          email?: string | null
           full_name: string
           id?: string
           roll_number?: string | null
@@ -100,6 +94,7 @@ export type Database = {
         Update: {
           class?: string | null
           created_at?: string
+          email?: string | null
           full_name?: string
           id?: string
           roll_number?: string | null
