@@ -29,11 +29,12 @@ interface AttendanceStats {
 
 interface Student {
   id: string;
-  name: string;
-  student_id: string;
-  roll_no: string;
-  class: string;
-  email: string;
+  user_id: string;
+  full_name: string;
+  student_id: string | null;
+  roll_number: string | null;
+  class: string | null;
+  email: string | null;
 }
 
 interface AttendanceWithStudent {
@@ -42,7 +43,7 @@ interface AttendanceWithStudent {
   status: 'Present' | 'Absent';
   student_id: string;
   created_at: string;
-  student: Student;
+  profile?: Student;
 }
 
 export default function Attendance() {
@@ -79,38 +80,29 @@ export default function Attendance() {
     if (!profile) return;
 
     try {
-      // Get student record first
-      const { data: student } = await supabase
-        .from('students')
-        .select('id')
-        .eq('user_id', profile.user_id)
-        .single();
+      // Get attendance records using user_id
+      const { data: attendance, error } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('student_id', profile.user_id)
+        .order('date', { ascending: false });
 
-      if (student) {
-        // Get attendance records
-        const { data: attendance, error } = await supabase
-          .from('attendance')
-          .select('*')
-          .eq('student_id', student.id)
-          .order('date', { ascending: false });
+      if (error) throw error;
 
-        if (error) throw error;
+      setAttendanceRecords(attendance || []);
+      
+      // Calculate stats
+      const totalDays = attendance?.length || 0;
+      const presentDays = attendance?.filter(a => a.status === 'Present').length || 0;
+      const absentDays = totalDays - presentDays;
+      const percentage = totalDays > 0 ? (presentDays / totalDays) * 100 : 0;
 
-        setAttendanceRecords(attendance || []);
-        
-        // Calculate stats
-        const totalDays = attendance?.length || 0;
-        const presentDays = attendance?.filter(a => a.status === 'Present').length || 0;
-        const absentDays = totalDays - presentDays;
-        const percentage = totalDays > 0 ? (presentDays / totalDays) * 100 : 0;
-
-        setStats({
-          totalDays,
-          presentDays,
-          absentDays,
-          percentage
-        });
-      }
+      setStats({
+        totalDays,
+        presentDays,
+        absentDays,
+        percentage
+      });
     } catch (error) {
       console.error('Error fetching attendance:', error);
     } finally {
@@ -133,13 +125,37 @@ export default function Attendance() {
   // Admin functions
   const fetchStudents = async () => {
     try {
+      // Fetch all profiles where the user has a student role
       const { data, error } = await supabase
-        .from('students')
-        .select('*')
-        .order('name');
+        .from('profiles')
+        .select(`
+          id,
+          user_id,
+          full_name,
+          student_id,
+          roll_number,
+          class,
+          email
+        `)
+        .order('full_name');
       
       if (error) throw error;
-      setStudents(data || []);
+      
+      // Filter students by checking their role
+      const studentProfiles = await Promise.all(
+        (data || []).map(async (profile) => {
+          const { data: roleData } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', profile.user_id)
+            .eq('role', 'student')
+            .maybeSingle();
+          
+          return roleData ? profile : null;
+        })
+      );
+      
+      setStudents(studentProfiles.filter(p => p !== null) as Student[]);
     } catch (error) {
       console.error('Error fetching students:', error);
       toast.error('Failed to fetch students');
@@ -152,7 +168,7 @@ export default function Attendance() {
         .from('attendance')
         .select(`
           *,
-          student:students(*)
+          profile:profiles!attendance_student_id_fkey(*)
         `)
         .order('date', { ascending: false });
       
@@ -290,8 +306,8 @@ export default function Attendance() {
                         </SelectTrigger>
                         <SelectContent>
                           {students.map((student) => (
-                            <SelectItem key={student.id} value={student.id}>
-                              {student.name} ({student.student_id})
+                            <SelectItem key={student.user_id} value={student.user_id}>
+                              {student.full_name} {student.student_id ? `(${student.student_id})` : ''}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -409,9 +425,9 @@ export default function Attendance() {
                     <TableCell className="font-medium">
                       {format(parseISO(record.date), 'MMM d, yyyy')}
                     </TableCell>
-                    <TableCell>{record.student.name}</TableCell>
-                    <TableCell>{record.student.student_id}</TableCell>
-                    <TableCell>{record.student.class}</TableCell>
+                    <TableCell>{record.profile?.full_name || 'Unknown'}</TableCell>
+                    <TableCell>{record.profile?.student_id || 'N/A'}</TableCell>
+                    <TableCell>{record.profile?.class || 'N/A'}</TableCell>
                     <TableCell>
                       <Badge className={record.status === 'Present' ? 'campus-attendance-present' : 'campus-attendance-absent'}>
                         {record.status}
