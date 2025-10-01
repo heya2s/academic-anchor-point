@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { sanitizeFileName } from "@/utils/validation";
@@ -15,9 +15,20 @@ import {
   BookOpen, 
   CheckCircle, 
   AlertCircle,
-  Loader2
+  Loader2,
+  Trash2
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface UploadFile {
   file: File;
@@ -30,9 +41,33 @@ interface UploadFile {
   error?: string;
 }
 
+interface SyllabusFile {
+  id: string;
+  subject: string;
+  semester: string;
+  file_url: string;
+  file_name: string;
+  created_at: string;
+}
+
+interface PYQFile {
+  id: string;
+  subject: string;
+  semester: string;
+  year: number;
+  file_url: string;
+  file_name: string;
+  created_at: string;
+}
+
 export default function FileUpload() {
   const { userRole, user } = useAuth();
   const [uploads, setUploads] = useState<UploadFile[]>([]);
+  const [syllabusFiles, setSyllabusFiles] = useState<SyllabusFile[]>([]);
+  const [pyqFiles, setPyqFiles] = useState<PYQFile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState<{ id: string; type: 'syllabus' | 'pyq'; file_url: string } | null>(null);
   const [syllabusForm, setSyllabusForm] = useState({
     subject: '',
     semester: ''
@@ -42,6 +77,44 @@ export default function FileUpload() {
     semester: '',
     year: ''
   });
+
+  useEffect(() => {
+    if (userRole === 'admin') {
+      fetchFiles();
+    }
+  }, [userRole]);
+
+  const fetchFiles = async () => {
+    setLoading(true);
+    try {
+      // Fetch syllabus files
+      const { data: syllabusData, error: syllabusError } = await supabase
+        .from('syllabus')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (syllabusError) throw syllabusError;
+      setSyllabusFiles(syllabusData || []);
+
+      // Fetch PYQ files
+      const { data: pyqData, error: pyqError } = await supabase
+        .from('pyqs')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (pyqError) throw pyqError;
+      setPyqFiles(pyqData || []);
+    } catch (error: any) {
+      console.error('Error fetching files:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch uploaded files",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleFileSelect = (
     files: FileList | null, 
@@ -157,6 +230,52 @@ export default function FileUpload() {
     setUploads(prev => prev.filter(item => 
       item.status !== 'success' && item.status !== 'error'
     ));
+    // Refresh the files list after clearing completed uploads
+    fetchFiles();
+  };
+
+  const handleDeleteFile = async () => {
+    if (!fileToDelete) return;
+
+    try {
+      // Delete from storage
+      const { error: storageError } = await supabase.storage
+        .from(fileToDelete.type === 'syllabus' ? 'syllabus' : 'pyqs')
+        .remove([fileToDelete.file_url]);
+
+      if (storageError) throw storageError;
+
+      // Delete from database
+      const { error: dbError } = await supabase
+        .from(fileToDelete.type === 'syllabus' ? 'syllabus' : 'pyqs')
+        .delete()
+        .eq('id', fileToDelete.id);
+
+      if (dbError) throw dbError;
+
+      toast({
+        title: "Success",
+        description: "File deleted successfully",
+      });
+
+      // Refresh the files list
+      fetchFiles();
+    } catch (error: any) {
+      console.error('Error deleting file:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete file",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteDialogOpen(false);
+      setFileToDelete(null);
+    }
+  };
+
+  const openDeleteDialog = (id: string, type: 'syllabus' | 'pyq', file_url: string) => {
+    setFileToDelete({ id, type, file_url });
+    setDeleteDialogOpen(true);
   };
 
   if (userRole !== 'admin') {
@@ -235,6 +354,41 @@ export default function FileUpload() {
                   Accepted formats: PDF, DOC, DOCX
                 </p>
               </div>
+
+              {/* Uploaded Syllabus Files */}
+              <div className="mt-6">
+                <h3 className="text-lg font-semibold mb-4">Uploaded Files</h3>
+                {loading ? (
+                  <p className="text-muted-foreground">Loading files...</p>
+                ) : syllabusFiles.length === 0 ? (
+                  <p className="text-muted-foreground">No syllabus files uploaded yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {syllabusFiles.map((file) => (
+                      <div key={file.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <div className="p-2 bg-primary/10 rounded-full">
+                            <BookOpen className="h-4 w-4 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-medium">{file.file_name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {file.subject} • {file.semester}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => openDeleteDialog(file.id, 'syllabus', file.file_url)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -291,6 +445,41 @@ export default function FileUpload() {
                 <p className="text-sm text-muted-foreground mt-2">
                   Accepted formats: PDF, DOC, DOCX
                 </p>
+              </div>
+
+              {/* Uploaded PYQ Files */}
+              <div className="mt-6">
+                <h3 className="text-lg font-semibold mb-4">Uploaded Files</h3>
+                {loading ? (
+                  <p className="text-muted-foreground">Loading files...</p>
+                ) : pyqFiles.length === 0 ? (
+                  <p className="text-muted-foreground">No PYQ files uploaded yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {pyqFiles.map((file) => (
+                      <div key={file.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <div className="p-2 bg-primary/10 rounded-full">
+                            <FileText className="h-4 w-4 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-medium">{file.file_name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {file.subject} • {file.semester} • {file.year}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => openDeleteDialog(file.id, 'pyq', file.file_url)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -399,6 +588,24 @@ export default function FileUpload() {
           </CardContent>
         </Card>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the file from storage and the database.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteFile} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
