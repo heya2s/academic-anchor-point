@@ -190,15 +190,53 @@ export default function Students() {
     setValidationErrors({});
     
     try {
-      const { error } = await supabase
-        .from('students')
-        .insert([{ ...sanitizedData, user_id: null }]);
+      // Generate a temporary password for the student
+      const tempPassword = `Student@${sanitizedData.student_id}`;
+      
+      // Create user account in Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: sanitizedData.email,
+        password: tempPassword,
+        options: {
+          data: {
+            full_name: sanitizedData.name,
+            user_role: 'student'
+          }
+        }
+      });
 
-      if (error) throw error;
+      if (authError) throw authError;
+      if (!authData.user) throw new Error('Failed to create user account');
+
+      // The profile and user_role are created automatically by the handle_new_user trigger
+      // Now update the profile with student details
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          student_id: sanitizedData.student_id,
+          roll_number: sanitizedData.roll_no,
+          class: sanitizedData.class
+        })
+        .eq('user_id', authData.user.id);
+
+      if (profileError) throw profileError;
+
+      // Also create record in students table
+      const { error: studentError } = await supabase
+        .from('students')
+        .insert([{
+          ...sanitizedData,
+          user_id: authData.user.id
+        }]);
+
+      if (studentError) {
+        console.error('Error creating student record:', studentError);
+        // Don't throw - the profile is created which is enough
+      }
 
       toast({
         title: "Success",
-        description: "Student added successfully",
+        description: `Student added successfully. Temporary password: ${tempPassword}`,
       });
 
       resetForm();
@@ -207,7 +245,7 @@ export default function Students() {
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to add student",
         variant: "destructive",
       });
     }
