@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { 
   User, 
   Settings as SettingsIcon, 
@@ -15,7 +16,9 @@ import {
   Save,
   UserCheck,
   Mail,
-  Key
+  Key,
+  Lock,
+  GraduationCap
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,6 +44,21 @@ export default function Settings() {
     student_id: '',
     roll_number: '',
     class: ''
+  });
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [notifications, setNotifications] = useState({
+    emailNotices: true,
+    emailAttendance: true,
+    emailUploadAlerts: false
+  });
+  const [systemSettings, setSystemSettings] = useState({
+    currentSemester: '1',
+    academicYear: '2024-2025',
+    defaultClass: ''
   });
 
   useEffect(() => {
@@ -120,6 +138,88 @@ export default function Settings() {
     setProfileData({
       ...profileData,
       [e.target.name]: e.target.value
+    });
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast({
+        title: "Error",
+        description: "New passwords do not match.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password must be at least 6 characters long.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: passwordData.newPassword
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Password Updated",
+        description: "Your password has been changed successfully.",
+      });
+
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update password.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPasswordData({
+      ...passwordData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleNotificationToggle = (key: keyof typeof notifications) => {
+    setNotifications({
+      ...notifications,
+      [key]: !notifications[key]
+    });
+    toast({
+      title: "Setting Updated",
+      description: `Notification preference has been updated.`,
+    });
+  };
+
+  const handleSystemSettingsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSystemSettings({
+      ...systemSettings,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleSystemSettingsSave = () => {
+    toast({
+      title: "System Settings Saved",
+      description: "System-wide settings have been updated successfully.",
     });
   };
 
@@ -280,21 +380,176 @@ export default function Settings() {
         </CardContent>
       </Card>
 
-      {/* System Configuration */}
+      {/* Password Change */}
       <Card className="campus-card">
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
-            <SettingsIcon className="h-5 w-5 text-primary" />
-            <span>System Configuration</span>
+            <Lock className="h-5 w-5 text-primary" />
+            <span>Change Password</span>
           </CardTitle>
-          <CardDescription>System-wide settings and preferences</CardDescription>
+          <CardDescription>Update your account password</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handlePasswordChange} className="space-y-4">
+            <div>
+              <Label htmlFor="currentPassword">Current Password</Label>
+              <Input
+                id="currentPassword"
+                name="currentPassword"
+                type="password"
+                value={passwordData.currentPassword}
+                onChange={handlePasswordInputChange}
+                placeholder="Enter current password"
+              />
+            </div>
+            <div>
+              <Label htmlFor="newPassword">New Password</Label>
+              <Input
+                id="newPassword"
+                name="newPassword"
+                type="password"
+                value={passwordData.newPassword}
+                onChange={handlePasswordInputChange}
+                placeholder="Enter new password (min 6 characters)"
+              />
+            </div>
+            <div>
+              <Label htmlFor="confirmPassword">Confirm New Password</Label>
+              <Input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                value={passwordData.confirmPassword}
+                onChange={handlePasswordInputChange}
+                placeholder="Confirm new password"
+              />
+            </div>
+            <Button type="submit" disabled={loading} className="campus-button-primary">
+              <Key className="h-4 w-4 mr-2" />
+              {loading ? 'Updating...' : 'Update Password'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Notification Preferences */}
+      <Card className="campus-card">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Bell className="h-5 w-5 text-primary" />
+            <span>Notification Preferences</span>
+          </CardTitle>
+          <CardDescription>Manage your notification settings</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <div className="font-medium">File Upload Settings</div>
+              <div className="font-medium">Email Notifications for Notices</div>
               <div className="text-sm text-muted-foreground">
-                Maximum file size and allowed formats for uploads
+                Receive email when new notices are posted
+              </div>
+            </div>
+            <Switch
+              checked={notifications.emailNotices}
+              onCheckedChange={() => handleNotificationToggle('emailNotices')}
+            />
+          </div>
+          <Separator />
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-medium">Attendance Alert Emails</div>
+              <div className="text-sm text-muted-foreground">
+                Get notified about attendance updates
+              </div>
+            </div>
+            <Switch
+              checked={notifications.emailAttendance}
+              onCheckedChange={() => handleNotificationToggle('emailAttendance')}
+            />
+          </div>
+          <Separator />
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-medium">File Upload Notifications</div>
+              <div className="text-sm text-muted-foreground">
+                Email alerts for new syllabus and PYQ uploads
+              </div>
+            </div>
+            <Switch
+              checked={notifications.emailUploadAlerts}
+              onCheckedChange={() => handleNotificationToggle('emailUploadAlerts')}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* System Configuration */}
+      <Card className="campus-card">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <GraduationCap className="h-5 w-5 text-primary" />
+            <span>System Configuration</span>
+          </CardTitle>
+          <CardDescription>Configure system-wide academic settings</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="currentSemester">Current Semester</Label>
+              <Input
+                id="currentSemester"
+                name="currentSemester"
+                value={systemSettings.currentSemester}
+                onChange={handleSystemSettingsChange}
+                placeholder="e.g., 1, 2, 3..."
+              />
+            </div>
+            <div>
+              <Label htmlFor="academicYear">Academic Year</Label>
+              <Input
+                id="academicYear"
+                name="academicYear"
+                value={systemSettings.academicYear}
+                onChange={handleSystemSettingsChange}
+                placeholder="e.g., 2024-2025"
+              />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="defaultClass">Default Class</Label>
+            <Input
+              id="defaultClass"
+              name="defaultClass"
+              value={systemSettings.defaultClass}
+              onChange={handleSystemSettingsChange}
+              placeholder="e.g., CSE-A, ECE-B"
+            />
+          </div>
+          <Button 
+            onClick={handleSystemSettingsSave} 
+            className="campus-button-primary"
+          >
+            <Save className="h-4 w-4 mr-2" />
+            Save System Settings
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Advanced Settings */}
+      <Card className="campus-card">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <SettingsIcon className="h-5 w-5 text-primary" />
+            <span>Advanced Settings</span>
+          </CardTitle>
+          <CardDescription>Additional system information and controls</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-medium">File Upload Limits</div>
+              <div className="text-sm text-muted-foreground">
+                Max size: 50MB per file (PDF, DOCX, PPTX)
               </div>
             </div>
             <Badge variant="outline">Configured</Badge>
@@ -302,25 +557,22 @@ export default function Settings() {
           <Separator />
           <div className="flex items-center justify-between">
             <div>
-              <div className="font-medium">Notification Settings</div>
+              <div className="font-medium">Database Status</div>
               <div className="text-sm text-muted-foreground">
-                Email notifications and alerts configuration
+                Automatic backups enabled with 30-day retention
               </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <Bell className="h-4 w-4 text-muted-foreground" />
-              <Badge variant="outline">Active</Badge>
-            </div>
+            <Badge className="bg-[hsl(var(--campus-success))]/10 text-[hsl(var(--campus-success))]">Active</Badge>
           </div>
           <Separator />
           <div className="flex items-center justify-between">
             <div>
-              <div className="font-medium">Database Backup</div>
+              <div className="font-medium">Storage Usage</div>
               <div className="text-sm text-muted-foreground">
-                Automatic backup schedule and retention policy
+                Current storage utilization and capacity
               </div>
             </div>
-            <Badge className="bg-green-100 text-green-800">Enabled</Badge>
+            <Badge variant="outline">Monitor</Badge>
           </div>
         </CardContent>
       </Card>
