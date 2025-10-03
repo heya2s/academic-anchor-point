@@ -64,8 +64,10 @@ export default function Settings() {
   useEffect(() => {
     if (userRole === 'admin') {
       fetchSystemStats();
+      fetchSystemSettings();
     }
     fetchUserProfile();
+    fetchNotificationPreferences();
   }, [userRole]);
 
   const fetchSystemStats = async () => {
@@ -110,6 +112,53 @@ export default function Settings() {
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
+    }
+  };
+
+  const fetchNotificationPreferences = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('notification_preferences')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setNotifications({
+          emailNotices: data.email_notices,
+          emailAttendance: data.email_attendance,
+          emailUploadAlerts: data.email_upload_alerts
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching notification preferences:', error);
+    }
+  };
+
+  const fetchSystemSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setSystemSettings({
+          currentSemester: data.current_semester || '1',
+          academicYear: data.academic_year || '2024-2025',
+          defaultClass: data.default_class || ''
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching system settings:', error);
     }
   };
 
@@ -198,15 +247,70 @@ export default function Settings() {
     });
   };
 
-  const handleNotificationToggle = (key: keyof typeof notifications) => {
-    setNotifications({
+  const handleNotificationToggle = async (key: keyof typeof notifications) => {
+    if (!user) return;
+
+    const newValue = !notifications[key];
+    const updatedNotifications = {
       ...notifications,
-      [key]: !notifications[key]
-    });
-    toast({
-      title: "Setting Updated",
-      description: `Notification preference has been updated.`,
-    });
+      [key]: newValue
+    };
+
+    setNotifications(updatedNotifications);
+
+    try {
+      // Map state keys to database column names
+      const dbColumnMap = {
+        emailNotices: 'email_notices',
+        emailAttendance: 'email_attendance',
+        emailUploadAlerts: 'email_upload_alerts'
+      };
+
+      const { data: existing } = await supabase
+        .from('notification_preferences')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (existing) {
+        // Update existing preferences
+        const { error } = await supabase
+          .from('notification_preferences')
+          .update({
+            [dbColumnMap[key]]: newValue,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+      } else {
+        // Insert new preferences
+        const { error } = await supabase
+          .from('notification_preferences')
+          .insert({
+            user_id: user.id,
+            email_notices: updatedNotifications.emailNotices,
+            email_attendance: updatedNotifications.emailAttendance,
+            email_upload_alerts: updatedNotifications.emailUploadAlerts
+          });
+
+        if (error) throw error;
+      }
+
+      toast({
+        title: "Setting Updated",
+        description: "Notification preference has been saved.",
+      });
+    } catch (error: any) {
+      console.error('Error saving notification preference:', error);
+      // Revert the change on error
+      setNotifications(notifications);
+      toast({
+        title: "Error",
+        description: "Failed to save notification preference.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSystemSettingsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -216,11 +320,60 @@ export default function Settings() {
     });
   };
 
-  const handleSystemSettingsSave = () => {
-    toast({
-      title: "System Settings Saved",
-      description: "System-wide settings have been updated successfully.",
-    });
+  const handleSystemSettingsSave = async () => {
+    if (!user) return;
+
+    setLoading(true);
+    try {
+      // Check if system settings exist
+      const { data: existing } = await supabase
+        .from('system_settings')
+        .select('id')
+        .limit(1)
+        .maybeSingle();
+
+      if (existing) {
+        // Update existing system settings
+        const { error } = await supabase
+          .from('system_settings')
+          .update({
+            current_semester: systemSettings.currentSemester,
+            academic_year: systemSettings.academicYear,
+            default_class: systemSettings.defaultClass,
+            updated_by: user.id,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existing.id);
+
+        if (error) throw error;
+      } else {
+        // Insert new system settings
+        const { error } = await supabase
+          .from('system_settings')
+          .insert({
+            current_semester: systemSettings.currentSemester,
+            academic_year: systemSettings.academicYear,
+            default_class: systemSettings.defaultClass,
+            updated_by: user.id
+          });
+
+        if (error) throw error;
+      }
+
+      toast({
+        title: "System Settings Saved",
+        description: "System-wide settings have been updated successfully.",
+      });
+    } catch (error: any) {
+      console.error('Error saving system settings:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save system settings.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (userRole !== 'admin') {

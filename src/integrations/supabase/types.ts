@@ -68,6 +68,36 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          email_attendance: boolean
+          email_notices: boolean
+          email_upload_alerts: boolean
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email_attendance?: boolean
+          email_notices?: boolean
+          email_upload_alerts?: boolean
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email_attendance?: boolean
+          email_notices?: boolean
+          email_upload_alerts?: boolean
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           class: string | null
@@ -206,6 +236,36 @@ export type Database = {
           subject?: string
           updated_at?: string
           uploaded_by?: string | null
+        }
+        Relationships: []
+      }
+      system_settings: {
+        Row: {
+          academic_year: string
+          created_at: string
+          current_semester: string
+          default_class: string | null
+          id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          academic_year?: string
+          created_at?: string
+          current_semester?: string
+          default_class?: string | null
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          academic_year?: string
+          created_at?: string
+          current_semester?: string
+          default_class?: string | null
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }
