@@ -86,11 +86,26 @@ export default function Attendance() {
     if (!profile) return;
 
     try {
-      // Get attendance records using user_id
+      // First, get the student record for the current user
+      const { data: studentData, error: studentError } = await supabase
+        .from('students')
+        .select('id')
+        .eq('user_id', profile.user_id)
+        .maybeSingle();
+
+      if (studentError) throw studentError;
+      
+      if (!studentData) {
+        console.log('No student record found');
+        setLoading(false);
+        return;
+      }
+
+      // Get attendance records using student.id
       const { data: attendance, error } = await supabase
         .from('attendance')
         .select('*')
-        .eq('student_id', profile.user_id)
+        .eq('student_id', studentData.id)
         .order('date', { ascending: false });
 
       if (error) throw error;
@@ -131,36 +146,25 @@ export default function Attendance() {
   // Admin functions
   const fetchStudents = async () => {
     try {
-      // Fetch all profiles where the user has a student role
+      // Fetch all students from the students table
       const { data, error } = await supabase
-        .from('profiles')
-        .select(`
-          id,
-          user_id,
-          full_name,
-          student_id,
-          roll_number,
-          class
-        `)
-        .order('full_name');
+        .from('students')
+        .select('*')
+        .order('name');
       
       if (error) throw error;
       
-      // Filter students by checking their role
-      const studentProfiles = await Promise.all(
-        (data || []).map(async (profile) => {
-          const { data: roleData } = await supabase
-            .from('user_roles')
-            .select('role')
-            .eq('user_id', profile.user_id)
-            .eq('role', 'student')
-            .maybeSingle();
-          
-          return roleData ? profile : null;
-        })
-      );
+      // Map to match the expected Student interface
+      const mappedStudents = (data || []).map(student => ({
+        id: student.id,
+        user_id: student.user_id,
+        full_name: student.name,
+        student_id: student.student_id,
+        roll_number: student.roll_no,
+        class: student.class
+      }));
       
-      setStudents(studentProfiles.filter(p => p !== null) as Student[]);
+      setStudents(mappedStudents);
     } catch (error) {
       console.error('Error fetching students:', error);
       toast.error('Failed to fetch students');
@@ -176,18 +180,25 @@ export default function Attendance() {
       
       if (error) throw error;
       
-      // Fetch profiles for each attendance record
+      // Fetch student info for each attendance record
       const recordsWithProfiles = await Promise.all(
         (attendanceData || []).map(async (record) => {
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('id, user_id, full_name, student_id, roll_number, class')
-            .eq('user_id', record.student_id)
+          const { data: studentData } = await supabase
+            .from('students')
+            .select('id, user_id, name, student_id, roll_no, class')
+            .eq('id', record.student_id)
             .maybeSingle();
           
           return {
             ...record,
-            profile: profileData
+            profile: studentData ? {
+              id: studentData.id,
+              user_id: studentData.user_id,
+              full_name: studentData.name,
+              student_id: studentData.student_id,
+              roll_number: studentData.roll_no,
+              class: studentData.class
+            } : undefined
           };
         })
       );
@@ -329,7 +340,7 @@ export default function Attendance() {
     if (selectedStudents.size === students.length) {
       setSelectedStudents(new Set());
     } else {
-      setSelectedStudents(new Set(students.map(s => s.user_id)));
+      setSelectedStudents(new Set(students.map(s => s.id)));
     }
   };
 
@@ -409,14 +420,14 @@ export default function Attendance() {
                         </p>
                       ) : (
                         students.map((student) => (
-                          <div key={student.user_id} className="flex items-center space-x-3">
+                          <div key={student.id} className="flex items-center space-x-3">
                             <Checkbox
-                              id={`student-${student.user_id}`}
-                              checked={selectedStudents.has(student.user_id)}
-                              onCheckedChange={() => toggleStudentSelection(student.user_id)}
+                              id={`student-${student.id}`}
+                              checked={selectedStudents.has(student.id)}
+                              onCheckedChange={() => toggleStudentSelection(student.id)}
                             />
                             <label
-                              htmlFor={`student-${student.user_id}`}
+                              htmlFor={`student-${student.id}`}
                               className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
                             >
                               <div>
@@ -474,7 +485,7 @@ export default function Attendance() {
                         </SelectTrigger>
                         <SelectContent>
                           {students.map((student) => (
-                            <SelectItem key={student.user_id} value={student.user_id}>
+                            <SelectItem key={student.id} value={student.id}>
                               {student.full_name} {student.student_id ? `(${student.student_id})` : ''}
                             </SelectItem>
                           ))}
