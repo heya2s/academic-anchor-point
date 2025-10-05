@@ -10,8 +10,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Calendar, TrendingUp, Target, Clock, Plus, Edit, Trash2, Users, CheckCircle } from "lucide-react";
+import { Calendar, TrendingUp, Target, Clock, Plus, Edit, Trash2, Users, CheckCircle, UserCheck } from "lucide-react";
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from "date-fns";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface AttendanceRecord {
   id: string;
@@ -65,6 +66,12 @@ export default function Attendance() {
   const [selectedStatus, setSelectedStatus] = useState<'Present' | 'Absent'>('Present');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<AttendanceWithStudent | null>(null);
+  
+  // Bulk attendance states
+  const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
+  const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
+  const [bulkDate, setBulkDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const [bulkStatus, setBulkStatus] = useState<'Present' | 'Absent'>('Present');
 
   useEffect(() => {
     if (userRole === 'student') {
@@ -273,6 +280,59 @@ export default function Attendance() {
     setIsDialogOpen(true);
   };
 
+  const handleBulkAttendance = async () => {
+    if (selectedStudents.size === 0) {
+      toast.error('Please select at least one student');
+      return;
+    }
+
+    try {
+      const attendanceRecords = Array.from(selectedStudents).map(studentId => ({
+        student_id: studentId,
+        date: bulkDate,
+        status: bulkStatus
+      }));
+
+      const { error } = await supabase
+        .from('attendance')
+        .insert(attendanceRecords);
+
+      if (error) throw error;
+      
+      toast.success(`Attendance marked for ${selectedStudents.size} student(s)`);
+      setIsBulkDialogOpen(false);
+      setSelectedStudents(new Set());
+      setBulkDate(format(new Date(), 'yyyy-MM-dd'));
+      setBulkStatus('Present');
+      fetchAllAttendanceRecords();
+    } catch (error: any) {
+      console.error('Error marking bulk attendance:', error);
+      if (error.code === '23505') {
+        toast.error('Some students already have attendance for this date');
+      } else {
+        toast.error('Failed to mark attendance');
+      }
+    }
+  };
+
+  const toggleStudentSelection = (studentId: string) => {
+    const newSelected = new Set(selectedStudents);
+    if (newSelected.has(studentId)) {
+      newSelected.delete(studentId);
+    } else {
+      newSelected.add(studentId);
+    }
+    setSelectedStudents(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedStudents.size === students.length) {
+      setSelectedStudents(new Set());
+    } else {
+      setSelectedStudents(new Set(students.map(s => s.user_id)));
+    }
+  };
+
   if (userRole === 'admin') {
     if (loading) {
       return (
@@ -294,13 +354,109 @@ export default function Attendance() {
             <p className="text-muted-foreground">Manage student attendance records</p>
           </div>
           
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="flex items-center space-x-2">
-                <Plus className="h-4 w-4" />
-                <span>Mark Attendance</span>
-              </Button>
-            </DialogTrigger>
+          <div className="flex gap-2">
+            <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="flex items-center space-x-2">
+                  <UserCheck className="h-4 w-4" />
+                  <span>Bulk Mark Attendance</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Bulk Mark Attendance</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="bulk-date">Date</Label>
+                    <Input
+                      id="bulk-date"
+                      type="date"
+                      value={bulkDate}
+                      onChange={(e) => setBulkDate(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="bulk-status">Status</Label>
+                    <Select value={bulkStatus} onValueChange={(value: 'Present' | 'Absent') => setBulkStatus(value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Present">Present</SelectItem>
+                        <SelectItem value="Absent">Absent</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Select Students</Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={toggleSelectAll}
+                      >
+                        {selectedStudents.size === students.length ? 'Deselect All' : 'Select All'}
+                      </Button>
+                    </div>
+                    <div className="border rounded-lg p-4 max-h-64 overflow-y-auto space-y-3">
+                      {students.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          No registered students found
+                        </p>
+                      ) : (
+                        students.map((student) => (
+                          <div key={student.user_id} className="flex items-center space-x-3">
+                            <Checkbox
+                              id={`student-${student.user_id}`}
+                              checked={selectedStudents.has(student.user_id)}
+                              onCheckedChange={() => toggleStudentSelection(student.user_id)}
+                            />
+                            <label
+                              htmlFor={`student-${student.user_id}`}
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
+                            >
+                              <div>
+                                <div>{student.full_name}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {student.student_id && `ID: ${student.student_id}`}
+                                  {student.student_id && student.class && ' • '}
+                                  {student.class && `Class: ${student.class}`}
+                                </div>
+                              </div>
+                            </label>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    {selectedStudents.size > 0 && (
+                      <p className="text-sm text-muted-foreground">
+                        {selectedStudents.size} student(s) selected
+                      </p>
+                    )}
+                  </div>
+
+                  <Button 
+                    onClick={handleBulkAttendance}
+                    className="w-full"
+                    disabled={selectedStudents.size === 0}
+                  >
+                    Mark Attendance for {selectedStudents.size} Student(s)
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="flex items-center space-x-2">
+                  <Plus className="h-4 w-4" />
+                  <span>Mark Attendance</span>
+                </Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>
@@ -360,6 +516,7 @@ export default function Attendance() {
               </div>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         {/* Stats Cards */}
