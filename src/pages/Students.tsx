@@ -118,7 +118,7 @@ export default function Students() {
             student_id: profile.student_id || '',
             roll_no: profile.roll_number || '',
             class: profile.class || '',
-            email: profile.user_id, // This will show user_id for now
+            email: profile.email,
             user_id: profile.user_id,
             created_at: profile.created_at
           }));
