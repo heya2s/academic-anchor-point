@@ -190,53 +190,24 @@ export default function Students() {
     setValidationErrors({});
     
     try {
-      // Generate a temporary password for the student
-      const tempPassword = `Student@${sanitizedData.student_id}`;
-      
-      // Create user account in Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: sanitizedData.email,
-        password: tempPassword,
-        options: {
-          data: {
-            full_name: sanitizedData.name,
-            user_role: 'student'
-          }
-        }
-      });
-
-      if (authError) throw authError;
-      if (!authData.user) throw new Error('Failed to create user account');
-
-      // The profile and user_role are created automatically by the handle_new_user trigger
-      // Now update the profile with student details
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          student_id: sanitizedData.student_id,
-          roll_number: sanitizedData.roll_no,
-          class: sanitizedData.class
-        })
-        .eq('user_id', authData.user.id);
-
-      if (profileError) throw profileError;
-
-      // Also create record in students table
+      // Create student record without auth account
+      // Students can sign up themselves later and their account will be linked
       const { error: studentError } = await supabase
         .from('students')
         .insert([{
-          ...sanitizedData,
-          user_id: authData.user.id
+          name: sanitizedData.name,
+          student_id: sanitizedData.student_id,
+          roll_no: sanitizedData.roll_no,
+          class: sanitizedData.class,
+          email: sanitizedData.email,
+          user_id: null
         }]);
 
-      if (studentError) {
-        console.error('Error creating student record:', studentError);
-        // Don't throw - the profile is created which is enough
-      }
+      if (studentError) throw studentError;
 
       toast({
         title: "Success",
-        description: `Student added successfully. Temporary password: ${tempPassword}`,
+        description: "Student added successfully. They can sign up using their email to access the portal.",
       });
 
       resetForm();
