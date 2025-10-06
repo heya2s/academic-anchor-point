@@ -48,7 +48,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .from('profiles')
         .select('*')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       if (profileError) throw profileError;
 
@@ -56,12 +56,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .from('user_roles')
         .select('role')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       if (roleError) throw roleError;
 
-      setProfile(profileData);
-      setUserRole(roleData.role);
+      setProfile(profileData ?? null);
+      setUserRole((roleData?.role as 'admin' | 'student' | undefined) ?? 'student');
     } catch (error) {
       console.error('Error fetching user data:', error);
     }

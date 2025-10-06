@@ -64,7 +64,7 @@ export default function Dashboard() {
       .from('students')
       .select('id')
       .eq('user_id', profile.user_id)
-      .single();
+      .maybeSingle();
 
     if (student) {
       // Get attendance data
