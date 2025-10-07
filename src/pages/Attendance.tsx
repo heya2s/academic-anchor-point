@@ -147,7 +147,7 @@ export default function Attendance() {
   // Admin functions
   const fetchStudents = async () => {
     try {
-      // Fetch from students table
+      // Fetch all students from the students table - this is our source of truth
       const { data: studentsData, error: studentsError } = await supabase
         .from('students')
         .select('*')
@@ -155,14 +155,7 @@ export default function Attendance() {
 
       if (studentsError) throw studentsError;
 
-      // Fetch from profiles table for users who signed up as students (for backward compatibility)
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('*');
-
-      if (profilesError) throw profilesError;
-
-      // Get student role user_ids
+      // Get student role user_ids for counting
       const { data: studentRoles } = await supabase
         .from('user_roles')
         .select('user_id')
@@ -170,45 +163,17 @@ export default function Attendance() {
 
       const studentUserIds = new Set(studentRoles?.map(r => r.user_id) || []);
 
-      // Combine both datasets and remove duplicates
-      const allStudents: Student[] = [];
-      const addedUserIds = new Set<string>();
-      
-      // Add students from students table
-      if (studentsData) {
-        studentsData.forEach(student => {
-          if (student.user_id && studentUserIds.has(student.user_id)) {
-            allStudents.push({
-              id: student.id,
-              user_id: student.user_id,
-              full_name: student.name,
-              student_id: student.student_id,
-              roll_number: student.roll_no,
-              class: student.class
-            });
-            addedUserIds.add(student.user_id);
-          }
-        });
-      }
-
-      // Add students from profiles table who aren't already added
-      if (profilesData) {
-        profilesData.forEach(profile => {
-          if (profile.user_id && 
-              studentUserIds.has(profile.user_id) && 
-              !addedUserIds.has(profile.user_id)) {
-            allStudents.push({
-              id: profile.id,
-              user_id: profile.user_id,
-              full_name: profile.full_name,
-              student_id: profile.student_id,
-              roll_number: profile.roll_number,
-              class: profile.class
-            });
-            addedUserIds.add(profile.user_id);
-          }
-        });
-      }
+      // Map students data to the Student interface
+      const allStudents: Student[] = (studentsData || [])
+        .filter(student => student.user_id && studentUserIds.has(student.user_id))
+        .map(student => ({
+          id: student.id, // This is the students table ID - correct for attendance
+          user_id: student.user_id,
+          full_name: student.name,
+          student_id: student.student_id,
+          roll_number: student.roll_no,
+          class: student.class
+        }));
 
       setStudents(allStudents);
       setTotalStudentsCount(studentUserIds.size);
