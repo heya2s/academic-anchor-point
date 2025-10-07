@@ -147,33 +147,71 @@ export default function Attendance() {
   // Admin functions
   const fetchStudents = async () => {
     try {
-      // Fetch all students from the students table
-      const { data, error } = await supabase
+      // Fetch from students table
+      const { data: studentsData, error: studentsError } = await supabase
         .from('students')
         .select('*')
         .order('name');
-      
-      if (error) throw error;
-      
-      // Map to match the expected Student interface
-      const mappedStudents = (data || []).map(student => ({
-        id: student.id,
-        user_id: student.user_id,
-        full_name: student.name,
-        student_id: student.student_id,
-        roll_number: student.roll_no,
-        class: student.class
-      }));
-      
-      setStudents(mappedStudents);
 
-      // Get total students count from user_roles
+      if (studentsError) throw studentsError;
+
+      // Fetch from profiles table for users who signed up as students (for backward compatibility)
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*');
+
+      if (profilesError) throw profilesError;
+
+      // Get student role user_ids
       const { data: studentRoles } = await supabase
         .from('user_roles')
         .select('user_id')
         .eq('role', 'student');
+
+      const studentUserIds = new Set(studentRoles?.map(r => r.user_id) || []);
+
+      // Combine both datasets and remove duplicates
+      const allStudents: Student[] = [];
+      const addedUserIds = new Set<string>();
       
-      setTotalStudentsCount(studentRoles?.length || 0);
+      // Add students from students table
+      if (studentsData) {
+        studentsData.forEach(student => {
+          if (student.user_id && studentUserIds.has(student.user_id)) {
+            allStudents.push({
+              id: student.id,
+              user_id: student.user_id,
+              full_name: student.name,
+              student_id: student.student_id,
+              roll_number: student.roll_no,
+              class: student.class
+            });
+            addedUserIds.add(student.user_id);
+          }
+        });
+      }
+
+      // Add students from profiles table who aren't already added
+      if (profilesData) {
+        profilesData.forEach(profile => {
+          if (profile.user_id && 
+              studentUserIds.has(profile.user_id) && 
+              !addedUserIds.has(profile.user_id)) {
+            allStudents.push({
+              id: profile.id,
+              user_id: profile.user_id,
+              full_name: profile.full_name,
+              student_id: profile.student_id,
+              roll_number: profile.roll_number,
+              class: profile.class
+            });
+            addedUserIds.add(profile.user_id);
+          }
+        });
+      }
+
+      setStudents(allStudents);
+      setTotalStudentsCount(studentUserIds.size);
     } catch (error) {
       console.error('Error fetching students:', error);
       toast.error('Failed to fetch students');
