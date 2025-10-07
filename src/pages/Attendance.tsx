@@ -147,7 +147,7 @@ export default function Attendance() {
   // Admin functions
   const fetchStudents = async () => {
     try {
-      // Fetch all students from the students table - this is our source of truth
+      // Fetch all students from the students table
       const { data: studentsData, error: studentsError } = await supabase
         .from('students')
         .select('*')
@@ -155,7 +155,7 @@ export default function Attendance() {
 
       if (studentsError) throw studentsError;
 
-      // Get student role user_ids for counting
+      // Get student role user_ids for counting total registered students
       const { data: studentRoles } = await supabase
         .from('user_roles')
         .select('user_id')
@@ -163,17 +163,16 @@ export default function Attendance() {
 
       const studentUserIds = new Set(studentRoles?.map(r => r.user_id) || []);
 
-      // Map students data to the Student interface
-      const allStudents: Student[] = (studentsData || [])
-        .filter(student => student.user_id && studentUserIds.has(student.user_id))
-        .map(student => ({
-          id: student.id, // This is the students table ID - correct for attendance
-          user_id: student.user_id,
-          full_name: student.name,
-          student_id: student.student_id,
-          roll_number: student.roll_no,
-          class: student.class
-        }));
+      // Map ALL students data to the Student interface (don't filter by user_id)
+      // Students created by admins may not have user_id yet
+      const allStudents: Student[] = (studentsData || []).map(student => ({
+        id: student.id, // This is the students table ID - correct for attendance
+        user_id: student.user_id,
+        full_name: student.name,
+        student_id: student.student_id,
+        roll_number: student.roll_no,
+        class: student.class
+      }));
 
       setStudents(allStudents);
       setTotalStudentsCount(studentUserIds.size);
