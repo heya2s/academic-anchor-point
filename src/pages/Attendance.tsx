@@ -60,6 +60,7 @@ export default function Attendance() {
 
   // Admin states
   const [students, setStudents] = useState<Student[]>([]);
+  const [totalStudentsCount, setTotalStudentsCount] = useState<number>(0);
   const [allAttendanceRecords, setAllAttendanceRecords] = useState<AttendanceWithStudent[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
@@ -165,6 +166,14 @@ export default function Attendance() {
       }));
       
       setStudents(mappedStudents);
+
+      // Get total students count from user_roles
+      const { data: studentRoles } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'student');
+      
+      setTotalStudentsCount(studentRoles?.length || 0);
     } catch (error) {
       console.error('Error fetching students:', error);
       toast.error('Failed to fetch students');
@@ -538,7 +547,7 @@ export default function Attendance() {
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">Total Students</p>
-              <p className="text-2xl font-bold">{students.length}</p>
+              <p className="text-2xl font-bold">{totalStudentsCount}</p>
             </div>
           </Card>
 

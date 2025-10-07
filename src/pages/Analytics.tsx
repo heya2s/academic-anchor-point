@@ -62,17 +62,22 @@ export default function Analytics() {
     try {
       const [
         studentsRes,
+        studentRolesRes,
         noticesRes,
         syllabusRes,
         pyqsRes,
         attendanceRes
       ] = await Promise.all([
         supabase.from('students').select('*'),
+        supabase.from('user_roles').select('user_id').eq('role', 'student'),
         supabase.from('notices').select('*'),
         supabase.from('syllabus').select('*'),
         supabase.from('pyqs').select('*'),
         supabase.from('attendance').select('*')
       ]);
+
+      // Use student roles count for total students
+      const totalStudentsCount = studentRolesRes.data?.length || 0;
 
       // Process class distribution
       const classDistribution = studentsRes.data?.reduce((acc: any, student) => {
@@ -129,7 +134,7 @@ export default function Analytics() {
         .slice(0, 10);
 
       setAnalytics({
-        totalStudents: studentsRes.data?.length || 0,
+        totalStudents: totalStudentsCount,
         totalNotices: noticesRes.data?.length || 0,
         totalSyllabus: syllabusRes.data?.length || 0,
         totalPYQs: pyqsRes.data?.length || 0,

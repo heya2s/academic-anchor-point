@@ -92,15 +92,17 @@ export default function Dashboard() {
 
   const fetchAdminData = async () => {
     // Get admin dashboard statistics
-    const [studentsRes, noticesRes, syllabusRes, pyqsRes] = await Promise.all([
-      supabase.from('students').select('id', { count: 'exact' }),
+    const [studentRolesRes, noticesRes, syllabusRes, pyqsRes] = await Promise.all([
+      supabase.from('user_roles').select('user_id').eq('role', 'student'),
       supabase.from('notices').select('id', { count: 'exact' }),
       supabase.from('syllabus').select('id', { count: 'exact' }),
       supabase.from('pyqs').select('id', { count: 'exact' })
     ]);
 
+    const totalStudents = studentRolesRes.data?.length || 0;
+
     setStats({
-      totalStudents: studentsRes.count || 0,
+      totalStudents,
       totalNotices: noticesRes.count || 0,
       totalSyllabus: syllabusRes.count || 0,
       totalPYQs: pyqsRes.count || 0
