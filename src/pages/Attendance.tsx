@@ -229,6 +229,9 @@ export default function Attendance() {
       return;
     }
 
+    console.log('Marking attendance for student ID:', selectedStudent);
+    console.log('Available students:', students);
+
     try {
       const { error } = await supabase
         .from('attendance')
@@ -238,7 +241,10 @@ export default function Attendance() {
           status: selectedStatus
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error details:', error);
+        throw error;
+      }
       
       toast.success('Attendance marked successfully');
       setIsDialogOpen(false);
@@ -250,8 +256,10 @@ export default function Attendance() {
       console.error('Error adding attendance:', error);
       if (error.code === '23505') {
         toast.error('Attendance already exists for this student on this date');
+      } else if (error.code === '23503') {
+        toast.error('Invalid student selected. Please refresh the page and try again.');
       } else {
-        toast.error('Failed to mark attendance');
+        toast.error('Failed to mark attendance: ' + (error.message || 'Unknown error'));
       }
     }
   };
@@ -308,6 +316,9 @@ export default function Attendance() {
       return;
     }
 
+    console.log('Marking bulk attendance for student IDs:', Array.from(selectedStudents));
+    console.log('Available students:', students);
+
     try {
       const attendanceRecords = Array.from(selectedStudents).map(studentId => ({
         student_id: studentId,
@@ -319,7 +330,10 @@ export default function Attendance() {
         .from('attendance')
         .insert(attendanceRecords);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error details:', error);
+        throw error;
+      }
       
       toast.success(`Attendance marked for ${selectedStudents.size} student(s)`);
       setIsBulkDialogOpen(false);
@@ -331,8 +345,10 @@ export default function Attendance() {
       console.error('Error marking bulk attendance:', error);
       if (error.code === '23505') {
         toast.error('Some students already have attendance for this date');
+      } else if (error.code === '23503') {
+        toast.error('Invalid students selected. Please refresh the page and try again.');
       } else {
-        toast.error('Failed to mark attendance');
+        toast.error('Failed to mark attendance: ' + (error.message || 'Unknown error'));
       }
     }
   };
