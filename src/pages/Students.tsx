@@ -190,30 +190,38 @@ export default function Students() {
     setValidationErrors({});
     
     try {
-      // Create student record without auth account
-      // Students can sign up themselves later and their account will be linked
-      const { error: studentError } = await supabase
-        .from('students')
-        .insert([{
-          name: sanitizedData.name,
+      // Get the current session
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error('You must be logged in to add students');
+      }
+
+      // Call edge function to create student auth account
+      const { data, error: functionError } = await supabase.functions.invoke('create-student-account', {
+        body: {
+          email: sanitizedData.email,
+          full_name: sanitizedData.name,
           student_id: sanitizedData.student_id,
           roll_no: sanitizedData.roll_no,
-          class: sanitizedData.class,
-          email: sanitizedData.email,
-          user_id: null
-        }]);
+          class: sanitizedData.class
+        }
+      });
 
-      if (studentError) throw studentError;
+      if (functionError) throw functionError;
+      if (data.error) throw new Error(data.error);
 
       toast({
         title: "Success",
-        description: "Student added successfully. They can sign up using their email to access the portal.",
+        description: `Student account created! Temporary password: ${data.temporary_password}`,
+        duration: 10000,
       });
 
       resetForm();
       setShowAddDialog(false);
       fetchStudents();
     } catch (error: any) {
+      console.error('Error adding student:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to add student",
