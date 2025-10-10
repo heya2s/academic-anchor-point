@@ -39,7 +39,15 @@ export type Database = {
           student_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "attendance_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notices: {
         Row: {
@@ -172,35 +180,35 @@ export type Database = {
       }
       students: {
         Row: {
-          class: string
+          class: string | null
           created_at: string
           email: string
           id: string
           name: string
-          roll_no: string
-          student_id: string
+          roll_no: string | null
+          student_id: string | null
           updated_at: string
           user_id: string | null
         }
         Insert: {
-          class: string
+          class?: string | null
           created_at?: string
           email: string
           id?: string
           name: string
-          roll_no: string
-          student_id: string
+          roll_no?: string | null
+          student_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
         Update: {
-          class?: string
+          class?: string | null
           created_at?: string
           email?: string
           id?: string
           name?: string
-          roll_no?: string
-          student_id?: string
+          roll_no?: string | null
+          student_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
