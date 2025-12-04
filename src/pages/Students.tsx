@@ -272,19 +272,25 @@ export default function Students() {
   };
 
   const handleDeleteStudent = async (student: Student) => {
-    if (!confirm(`Are you sure you want to delete ${student.name}?`)) return;
+    if (!confirm(`Are you sure you want to delete ${student.name}? This will also remove their login account.`)) return;
 
     try {
-      const { error } = await supabase
-        .from('students')
-        .delete()
-        .eq('id', student.id);
+      const { data, error } = await supabase.functions.invoke('delete-student', {
+        body: { 
+          student_id: student.id,
+          user_id: student.user_id 
+        }
+      });
 
       if (error) throw error;
 
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
       toast({
         title: "Success",
-        description: "Student deleted successfully",
+        description: "Student and their account deleted successfully",
       });
 
       fetchStudents();

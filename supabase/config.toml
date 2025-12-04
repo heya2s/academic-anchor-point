@@ -1,1 +1,7 @@
 project_id = "ososevamkgllbxtsseic"
+
+[functions.create-student-account]
+verify_jwt = false
+
+[functions.delete-student]
+verify_jwt = false
