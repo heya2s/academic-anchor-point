@@ -161,12 +161,19 @@ export default function Attendance() {
         .select('user_id')
         .eq('role', 'student');
 
-      const studentUserIds = new Set(studentRoles?.map(r => r.user_id) || []);
+      const studentUserIds = studentRoles?.map(r => r.user_id) || [];
 
-      // Map ALL students data to the Student interface (don't filter by user_id)
-      // Students created by admins may not have user_id yet
+      // Fetch profiles for self-registered students who might not be in students table
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('user_id', studentUserIds);
+
+      if (profilesError) throw profilesError;
+
+      // Start with students from the students table
       const allStudents: Student[] = (studentsData || []).map(student => ({
-        id: student.id, // This is the students table ID - correct for attendance
+        id: student.id,
         user_id: student.user_id,
         full_name: student.name,
         student_id: student.student_id,
@@ -174,8 +181,39 @@ export default function Attendance() {
         class: student.class
       }));
 
+      // Find self-registered students in profiles that don't exist in students table
+      const existingUserIds = new Set((studentsData || []).map(s => s.user_id).filter(Boolean));
+      const missingProfiles = (profilesData || []).filter(p => !existingUserIds.has(p.user_id));
+
+      // For missing students, create records in the students table
+      for (const profile of missingProfiles) {
+        const { data: newStudent, error: insertError } = await supabase
+          .from('students')
+          .insert({
+            user_id: profile.user_id,
+            name: profile.full_name,
+            email: profile.email || '',
+            student_id: profile.student_id,
+            roll_no: profile.roll_number,
+            class: profile.class
+          })
+          .select()
+          .single();
+
+        if (!insertError && newStudent) {
+          allStudents.push({
+            id: newStudent.id,
+            user_id: newStudent.user_id,
+            full_name: newStudent.name,
+            student_id: newStudent.student_id,
+            roll_number: newStudent.roll_no,
+            class: newStudent.class
+          });
+        }
+      }
+
       setStudents(allStudents);
-      setTotalStudentsCount(studentUserIds.size);
+      setTotalStudentsCount(studentUserIds.length);
     } catch (error) {
       console.error('Error fetching students:', error);
       toast.error('Failed to fetch students');
