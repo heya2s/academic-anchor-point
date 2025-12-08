@@ -30,7 +30,9 @@ import {
   Trash2, 
   GraduationCap,
   Mail,
-  Hash
+  Hash,
+  Camera,
+  CheckCircle
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { 
@@ -41,6 +43,7 @@ import {
   sanitizeFormData, 
   VALIDATION_LIMITS 
 } from "@/utils/validation";
+import FaceRegistrationDialog from "@/components/students/FaceRegistrationDialog";
 
 interface Student {
   id: string;
@@ -62,6 +65,8 @@ export default function Students() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [showFaceDialog, setShowFaceDialog] = useState(false);
+  const [faceStudent, setFaceStudent] = useState<Student | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     student_id: '',
@@ -524,6 +529,18 @@ export default function Students() {
                           <Button
                             size="sm"
                             variant="outline"
+                            className="text-[hsl(var(--campus-success))]"
+                            onClick={() => {
+                              setFaceStudent(student);
+                              setShowFaceDialog(true);
+                            }}
+                            title="Register Face"
+                          >
+                            <Camera className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
                             onClick={() => openEditDialog(student)}
                           >
                             <Edit className="h-3 w-3" />
@@ -630,6 +647,16 @@ export default function Students() {
           </form>
         </DialogContent>
       </Dialog>
+      
+      {/* Face Registration Dialog */}
+      <FaceRegistrationDialog
+        open={showFaceDialog}
+        onOpenChange={setShowFaceDialog}
+        student={faceStudent}
+        onSuccess={() => {
+          toast({ title: "Success", description: "Face registered successfully" });
+        }}
+      />
     </div>
   );
 }
