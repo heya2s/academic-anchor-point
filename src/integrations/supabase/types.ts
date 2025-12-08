@@ -19,24 +19,30 @@ export type Database = {
           created_at: string
           date: string
           id: string
+          marked_via: string | null
           status: Database["public"]["Enums"]["attendance_status"]
           student_id: string
+          time: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           date?: string
           id?: string
+          marked_via?: string | null
           status?: Database["public"]["Enums"]["attendance_status"]
           student_id: string
+          time?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           date?: string
           id?: string
+          marked_via?: string | null
           status?: Database["public"]["Enums"]["attendance_status"]
           student_id?: string
+          time?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -177,6 +183,38 @@ export type Database = {
           year?: number | null
         }
         Relationships: []
+      }
+      student_faces: {
+        Row: {
+          created_at: string
+          face_data: string
+          id: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          face_data: string
+          id?: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          face_data?: string
+          id?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_faces_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       students: {
         Row: {

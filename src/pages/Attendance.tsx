@@ -10,9 +10,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Calendar, TrendingUp, Target, Clock, Plus, Edit, Trash2, Users, CheckCircle, UserCheck } from "lucide-react";
+import { Calendar, TrendingUp, Target, Clock, Plus, Edit, Trash2, Users, CheckCircle, UserCheck, Camera } from "lucide-react";
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from "date-fns";
 import { Checkbox } from "@/components/ui/checkbox";
+import CameraAttendanceDialog from "@/components/attendance/CameraAttendanceDialog";
 
 interface AttendanceRecord {
   id: string;
@@ -73,6 +74,10 @@ export default function Attendance() {
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
   const [bulkDate, setBulkDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [bulkStatus, setBulkStatus] = useState<'Present' | 'Absent'>('Present');
+  
+  // Camera attendance states
+  const [isCameraDialogOpen, setIsCameraDialogOpen] = useState(false);
+  const [availableClasses, setAvailableClasses] = useState<string[]>([]);
 
   useEffect(() => {
     if (userRole === 'student') {
@@ -214,6 +219,10 @@ export default function Attendance() {
 
       setStudents(allStudents);
       setTotalStudentsCount(studentUserIds.length);
+      
+      // Extract unique classes for camera filter
+      const classes = [...new Set(allStudents.map(s => s.class).filter(Boolean))] as string[];
+      setAvailableClasses(classes);
     } catch (error) {
       console.error('Error fetching students:', error);
       toast.error('Failed to fetch students');
@@ -431,11 +440,19 @@ export default function Attendance() {
           </div>
           
           <div className="flex gap-2">
+            <Button 
+              onClick={() => setIsCameraDialogOpen(true)}
+              className="bg-[hsl(var(--campus-success))] hover:bg-[hsl(var(--campus-success))]/90 flex items-center space-x-2"
+            >
+              <Camera className="h-4 w-4" />
+              <span>Mark via Camera</span>
+            </Button>
+            
             <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" className="flex items-center space-x-2">
                   <UserCheck className="h-4 w-4" />
-                  <span>Bulk Mark Attendance</span>
+                  <span>Bulk Mark</span>
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -707,6 +724,16 @@ export default function Attendance() {
             )}
           </CardContent>
         </Card>
+        
+        {/* Camera Attendance Dialog */}
+        <CameraAttendanceDialog
+          open={isCameraDialogOpen}
+          onOpenChange={setIsCameraDialogOpen}
+          onSuccess={() => {
+            fetchAllAttendanceRecords();
+          }}
+          classes={availableClasses}
+        />
       </div>
     );
   }
