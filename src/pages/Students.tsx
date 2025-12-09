@@ -251,12 +251,30 @@ export default function Students() {
     setValidationErrors({});
 
     try {
-      const { error } = await supabase
+      // Update students table
+      const { error: studentError } = await supabase
         .from('students')
         .update(sanitizedData)
         .eq('id', selectedStudent.id);
 
-      if (error) throw error;
+      if (studentError) throw studentError;
+
+      // Also update profiles table so student can see their info
+      if (selectedStudent.user_id) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            full_name: sanitizedData.name,
+            student_id: sanitizedData.student_id,
+            roll_number: sanitizedData.roll_no,
+            class: sanitizedData.class
+          })
+          .eq('user_id', selectedStudent.user_id);
+
+        if (profileError) {
+          console.error('Error updating profile:', profileError);
+        }
+      }
 
       toast({
         title: "Success",
