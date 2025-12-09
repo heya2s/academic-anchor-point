@@ -7,14 +7,20 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log('verify-face function called, method:', req.method);
+  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { captured_face, class_filter } = await req.json();
+    const body = await req.json();
+    console.log('Request body received, class_filter:', body.class_filter);
+    
+    const { captured_face, class_filter } = body;
 
     if (!captured_face || typeof captured_face !== 'string') {
+      console.error('Invalid captured_face data');
       return new Response(JSON.stringify({ error: 'Invalid captured_face data' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -22,14 +28,18 @@ serve(async (req) => {
     }
 
     if (!captured_face.startsWith('data:image/')) {
+      console.error('Invalid image format');
       return new Response(JSON.stringify({ error: 'Invalid image format' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
+    console.log('Image format valid, checking authorization...');
+
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error('Missing authorization header');
       return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -45,24 +55,34 @@ serve(async (req) => {
     // Verify user is admin
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     if (userError || !user) {
+      console.error('User authentication failed:', userError?.message);
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const { data: roleData } = await supabaseClient
+    console.log('User authenticated:', user.id);
+
+    const { data: roleData, error: roleError } = await supabaseClient
       .from('user_roles')
       .select('role')
       .eq('user_id', user.id)
       .single();
 
+    if (roleError) {
+      console.error('Role fetch error:', roleError.message);
+    }
+
     if (roleData?.role !== 'admin') {
+      console.error('User is not admin, role:', roleData?.role);
       return new Response(JSON.stringify({ error: 'Only admins can verify faces' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    console.log('Admin verified, fetching registered faces...');
 
     // Use service role for database access
     const supabaseAdmin = createClient(
@@ -71,7 +91,7 @@ serve(async (req) => {
     );
 
     // Get all registered faces with student info
-    let query = supabaseAdmin
+    const { data: registeredFaces, error: facesError } = await supabaseAdmin
       .from('student_faces')
       .select(`
         id,
@@ -87,8 +107,6 @@ serve(async (req) => {
         )
       `);
 
-    const { data: registeredFaces, error: facesError } = await query;
-
     if (facesError) {
       console.error('Error fetching faces:', facesError);
       return new Response(JSON.stringify({ error: 'Failed to fetch registered faces' }), {
@@ -96,6 +114,8 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    console.log('Registered faces found:', registeredFaces?.length || 0);
 
     if (!registeredFaces || registeredFaces.length === 0) {
       return new Response(JSON.stringify({ 
@@ -108,8 +128,9 @@ serve(async (req) => {
 
     // Filter by class if provided
     let facesToCheck = registeredFaces;
-    if (class_filter) {
+    if (class_filter && class_filter !== '') {
       facesToCheck = registeredFaces.filter((f: any) => f.students?.class === class_filter);
+      console.log('After class filter, faces to check:', facesToCheck.length);
     }
 
     if (facesToCheck.length === 0) {
@@ -131,10 +152,17 @@ serve(async (req) => {
       });
     }
 
+    console.log('Starting face comparison with', facesToCheck.length, 'registered faces...');
+
     // Compare captured face with each registered face using AI
     for (const registeredFace of facesToCheck) {
       const student = registeredFace.students;
-      if (!student) continue;
+      if (!student) {
+        console.log('Skipping face without student data');
+        continue;
+      }
+
+      console.log('Comparing with student:', student.name);
 
       const comparisonPrompt = `You are a face recognition system. Compare these two images and determine if they show the SAME person.
 
@@ -154,6 +182,7 @@ A confidence above 0.7 with match=true indicates a reliable match.
 RESPOND WITH ONLY THE JSON OBJECT, NO OTHER TEXT.`;
 
       try {
+        console.log('Calling AI API for comparison...');
         const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -178,17 +207,20 @@ RESPOND WITH ONLY THE JSON OBJECT, NO OTHER TEXT.`;
                 ]
               }
             ],
-            max_tokens: 100,
           }),
         });
 
+        console.log('AI API response status:', aiResponse.status);
+
         if (!aiResponse.ok) {
-          console.error('AI API error:', await aiResponse.text());
+          const errorText = await aiResponse.text();
+          console.error('AI API error:', aiResponse.status, errorText);
           continue;
         }
 
         const aiData = await aiResponse.json();
         const responseText = aiData.choices?.[0]?.message?.content || '';
+        console.log('AI response:', responseText);
         
         // Parse the JSON response
         try {
@@ -196,6 +228,7 @@ RESPOND WITH ONLY THE JSON OBJECT, NO OTHER TEXT.`;
           const jsonMatch = responseText.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
             const result = JSON.parse(jsonMatch[0]);
+            console.log('Parsed result:', result);
             
             if (result.match === true && result.confidence >= 0.65) {
               console.log(`Face matched: ${student.name} with confidence ${result.confidence}`);
@@ -210,6 +243,7 @@ RESPOND WITH ONLY THE JSON OBJECT, NO OTHER TEXT.`;
                 .maybeSingle();
 
               if (existingAttendance) {
+                console.log('Attendance already marked for today');
                 return new Response(JSON.stringify({
                   recognized: true,
                   already_marked: true,
@@ -249,6 +283,7 @@ RESPOND WITH ONLY THE JSON OBJECT, NO OTHER TEXT.`;
                 });
               }
 
+              console.log('Attendance marked successfully for:', student.name);
               return new Response(JSON.stringify({
                 recognized: true,
                 attendance_marked: true,
@@ -265,6 +300,8 @@ RESPOND WITH ONLY THE JSON OBJECT, NO OTHER TEXT.`;
               }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
               });
+            } else {
+              console.log(`No match for ${student.name}, match=${result.match}, confidence=${result.confidence}`);
             }
           }
         } catch (parseError) {
@@ -276,6 +313,7 @@ RESPOND WITH ONLY THE JSON OBJECT, NO OTHER TEXT.`;
     }
 
     // No match found
+    console.log('No face match found after checking all registered faces');
     return new Response(JSON.stringify({
       recognized: false,
       message: 'Face not recognized. Please try again or ensure your face is registered.'
