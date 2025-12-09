@@ -56,23 +56,59 @@ export default function CameraCapture({
       setError(err.message || 'Failed to access camera. Please ensure camera permissions are granted.');
       setIsLoading(false);
     }
-  }, [facingMode, stream]);
+  }, [facingMode]);
 
   useEffect(() => {
-    startCamera();
-    
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+    let isMounted = true;
+    let currentStream: MediaStream | null = null;
+
+    const initCamera = async () => {
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        const mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: facingMode,
+            width: { ideal: 640 },
+            height: { ideal: 480 }
+          }
+        });
+
+        if (!isMounted) {
+          mediaStream.getTracks().forEach(track => track.stop());
+          return;
+        }
+
+        currentStream = mediaStream;
+        setStream(mediaStream);
+        
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream;
+          videoRef.current.onloadedmetadata = () => {
+            if (isMounted) {
+              videoRef.current?.play();
+              setIsLoading(false);
+            }
+          };
+        }
+      } catch (err: any) {
+        console.error('Camera error:', err);
+        if (isMounted) {
+          setError(err.message || 'Failed to access camera. Please ensure camera permissions are granted.');
+          setIsLoading(false);
+        }
       }
     };
-  }, []);
 
-  useEffect(() => {
-    if (stream && videoRef.current) {
-      stream.getTracks().forEach(track => track.stop());
-    }
-    startCamera();
+    initCamera();
+    
+    return () => {
+      isMounted = false;
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+      }
+    };
   }, [facingMode]);
 
   const capturePhoto = useCallback(() => {

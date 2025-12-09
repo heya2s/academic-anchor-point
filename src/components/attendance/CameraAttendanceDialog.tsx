@@ -50,7 +50,7 @@ export default function CameraAttendanceDialog({
       const { data, error } = await supabase.functions.invoke('verify-face', {
         body: {
           captured_face: imageData,
-          class_filter: selectedClass || undefined
+          class_filter: selectedClass === 'all' ? undefined : selectedClass
         }
       });
 
@@ -106,7 +106,7 @@ export default function CameraAttendanceDialog({
 
   return (
     <Dialog open={open} onOpenChange={resetAndClose}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Camera className="h-5 w-5 text-[hsl(var(--campus-success))]" />
@@ -114,110 +114,112 @@ export default function CameraAttendanceDialog({
           </DialogTitle>
         </DialogHeader>
 
-        {!showCamera && !result.type && (
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <Label>Filter by Class (Optional)</Label>
-              <Select value={selectedClass} onValueChange={setSelectedClass}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Classes" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All Classes</SelectItem>
-                  {classes.map((cls) => (
-                    <SelectItem key={cls} value={cls}>
-                      {cls}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Select a class to only match faces from that class
-              </p>
-            </div>
+        <div className="min-h-[200px]">
+          {!showCamera && !result.type && (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <Label>Filter by Class (Optional)</Label>
+                <Select value={selectedClass} onValueChange={setSelectedClass}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Classes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Classes</SelectItem>
+                    {classes.map((cls) => (
+                      <SelectItem key={cls} value={cls}>
+                        {cls}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Select a class to only match faces from that class
+                </p>
+              </div>
 
-            <Button 
-              onClick={() => setShowCamera(true)} 
-              className="w-full bg-[hsl(var(--campus-success))] hover:bg-[hsl(var(--campus-success))]/90"
-            >
-              <Camera className="h-4 w-4 mr-2" />
-              Start Camera
-            </Button>
-          </div>
-        )}
-
-        {showCamera && !result.type && (
-          <CameraCapture
-            onCapture={handleCapture}
-            onClose={() => setShowCamera(false)}
-            isProcessing={isProcessing}
-            title="Capture Student Face"
-          />
-        )}
-
-        {result.type && (
-          <div className="space-y-6">
-            <div className={`text-center p-6 rounded-lg ${
-              result.type === 'success' ? 'bg-[hsl(var(--campus-success))]/10' :
-              result.type === 'already_marked' ? 'bg-[hsl(var(--campus-info))]/10' :
-              'bg-destructive/10'
-            }`}>
-              {result.type === 'success' && (
-                <CheckCircle className="h-16 w-16 mx-auto mb-4 text-[hsl(var(--campus-success))]" />
-              )}
-              {result.type === 'already_marked' && (
-                <AlertCircle className="h-16 w-16 mx-auto mb-4 text-[hsl(var(--campus-info))]" />
-              )}
-              {result.type === 'error' && (
-                <XCircle className="h-16 w-16 mx-auto mb-4 text-destructive" />
-              )}
-              
-              <h3 className={`text-xl font-bold mb-2 ${
-                result.type === 'success' ? 'text-[hsl(var(--campus-success))]' :
-                result.type === 'already_marked' ? 'text-[hsl(var(--campus-info))]' :
-                'text-destructive'
-              }`}>
-                {result.type === 'success' ? 'Attendance Marked!' :
-                 result.type === 'already_marked' ? 'Already Marked' :
-                 'Not Recognized'}
-              </h3>
-              
-              <p className="text-muted-foreground mb-4">{result.message}</p>
-              
-              {result.student && (
-                <div className="bg-card border rounded-lg p-4 text-left">
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <span className="text-muted-foreground">Name:</span>
-                    <span className="font-medium">{result.student.name}</span>
-                    <span className="text-muted-foreground">Student ID:</span>
-                    <span>{result.student.student_id || 'N/A'}</span>
-                    <span className="text-muted-foreground">Roll No:</span>
-                    <span>{result.student.roll_no || 'N/A'}</span>
-                    <span className="text-muted-foreground">Class:</span>
-                    <span>{result.student.class || 'N/A'}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-2">
               <Button 
-                onClick={tryAgain} 
-                variant="outline" 
-                className="flex-1"
+                onClick={() => setShowCamera(true)} 
+                className="w-full bg-[hsl(var(--campus-success))] hover:bg-[hsl(var(--campus-success))]/90"
               >
                 <Camera className="h-4 w-4 mr-2" />
-                Scan Another
-              </Button>
-              <Button 
-                onClick={resetAndClose}
-                className="flex-1"
-              >
-                Done
+                Start Camera
               </Button>
             </div>
-          </div>
-        )}
+          )}
+
+          {showCamera && !result.type && (
+            <CameraCapture
+              onCapture={handleCapture}
+              onClose={() => setShowCamera(false)}
+              isProcessing={isProcessing}
+              title="Capture Student Face"
+            />
+          )}
+
+          {result.type && (
+            <div className="space-y-6">
+              <div className={`text-center p-6 rounded-lg ${
+                result.type === 'success' ? 'bg-[hsl(var(--campus-success))]/10' :
+                result.type === 'already_marked' ? 'bg-[hsl(var(--campus-info))]/10' :
+                'bg-destructive/10'
+              }`}>
+                {result.type === 'success' && (
+                  <CheckCircle className="h-16 w-16 mx-auto mb-4 text-[hsl(var(--campus-success))]" />
+                )}
+                {result.type === 'already_marked' && (
+                  <AlertCircle className="h-16 w-16 mx-auto mb-4 text-[hsl(var(--campus-info))]" />
+                )}
+                {result.type === 'error' && (
+                  <XCircle className="h-16 w-16 mx-auto mb-4 text-destructive" />
+                )}
+                
+                <h3 className={`text-xl font-bold mb-2 ${
+                  result.type === 'success' ? 'text-[hsl(var(--campus-success))]' :
+                  result.type === 'already_marked' ? 'text-[hsl(var(--campus-info))]' :
+                  'text-destructive'
+                }`}>
+                  {result.type === 'success' ? 'Attendance Marked!' :
+                   result.type === 'already_marked' ? 'Already Marked' :
+                   'Not Recognized'}
+                </h3>
+                
+                <p className="text-muted-foreground mb-4">{result.message}</p>
+                
+                {result.student && (
+                  <div className="bg-card border rounded-lg p-4 text-left">
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <span className="text-muted-foreground">Name:</span>
+                      <span className="font-medium">{result.student.name}</span>
+                      <span className="text-muted-foreground">Student ID:</span>
+                      <span>{result.student.student_id || 'N/A'}</span>
+                      <span className="text-muted-foreground">Roll No:</span>
+                      <span>{result.student.roll_no || 'N/A'}</span>
+                      <span className="text-muted-foreground">Class:</span>
+                      <span>{result.student.class || 'N/A'}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                <Button 
+                  onClick={tryAgain} 
+                  variant="outline" 
+                  className="flex-1"
+                >
+                  <Camera className="h-4 w-4 mr-2" />
+                  Scan Another
+                </Button>
+                <Button 
+                  onClick={resetAndClose}
+                  className="flex-1"
+                >
+                  Done
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
