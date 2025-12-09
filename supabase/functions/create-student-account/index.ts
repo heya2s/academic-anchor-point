@@ -180,10 +180,11 @@ serve(async (req) => {
       })
     }
 
-    // Update the students record with the specific details
-    // The trigger handle_new_user() creates the student record with user_id set
+    // Update both students and profiles records with the specific details
+    // The trigger handle_new_user() creates the student and profile records with user_id set
     if (newUser.user) {
-      const { error: updateError } = await supabaseAdmin
+      // Update students table
+      const { error: updateStudentError } = await supabaseAdmin
         .from('students')
         .update({
           student_id: sanitizedStudentId,
@@ -192,8 +193,22 @@ serve(async (req) => {
         })
         .eq('user_id', newUser.user.id)
 
-      if (updateError) {
-        console.error('Error updating student details:', updateError)
+      if (updateStudentError) {
+        console.error('Error updating student details:', updateStudentError)
+      }
+
+      // Also update profiles table so student can see their info
+      const { error: updateProfileError } = await supabaseAdmin
+        .from('profiles')
+        .update({
+          student_id: sanitizedStudentId,
+          roll_number: sanitizedRollNo,
+          class: sanitizedClass
+        })
+        .eq('user_id', newUser.user.id)
+
+      if (updateProfileError) {
+        console.error('Error updating profile details:', updateProfileError)
       }
     }
 
