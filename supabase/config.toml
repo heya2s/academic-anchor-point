@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.verify-face]
 verify_jwt = false
+
+[functions.mark-smart-attendance]
+verify_jwt = false

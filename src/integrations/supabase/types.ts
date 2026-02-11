@@ -55,6 +55,102 @@ export type Database = {
           },
         ]
       }
+      attendance_sessions: {
+        Row: {
+          batch: string
+          closed_at: string | null
+          course: string
+          created_at: string
+          duration_minutes: number
+          expires_at: string
+          gps_required: boolean
+          id: string
+          started_at: string
+          started_by: string
+          status: string
+          subject: string
+          updated_at: string
+          wifi_required: boolean
+        }
+        Insert: {
+          batch: string
+          closed_at?: string | null
+          course: string
+          created_at?: string
+          duration_minutes?: number
+          expires_at: string
+          gps_required?: boolean
+          id?: string
+          started_at?: string
+          started_by: string
+          status?: string
+          subject: string
+          updated_at?: string
+          wifi_required?: boolean
+        }
+        Update: {
+          batch?: string
+          closed_at?: string | null
+          course?: string
+          created_at?: string
+          duration_minutes?: number
+          expires_at?: string
+          gps_required?: boolean
+          id?: string
+          started_at?: string
+          started_by?: string
+          status?: string
+          subject?: string
+          updated_at?: string
+          wifi_required?: boolean
+        }
+        Relationships: []
+      }
+      campus_settings: {
+        Row: {
+          allowed_radius_meters: number
+          campus_ip: string | null
+          campus_ip_range: string | null
+          campus_name: string
+          created_at: string
+          gps_verification_enabled: boolean
+          id: string
+          latitude: number
+          longitude: number
+          updated_at: string
+          updated_by: string | null
+          wifi_verification_enabled: boolean
+        }
+        Insert: {
+          allowed_radius_meters?: number
+          campus_ip?: string | null
+          campus_ip_range?: string | null
+          campus_name?: string
+          created_at?: string
+          gps_verification_enabled?: boolean
+          id?: string
+          latitude?: number
+          longitude?: number
+          updated_at?: string
+          updated_by?: string | null
+          wifi_verification_enabled?: boolean
+        }
+        Update: {
+          allowed_radius_meters?: number
+          campus_ip?: string | null
+          campus_ip_range?: string | null
+          campus_name?: string
+          created_at?: string
+          gps_verification_enabled?: boolean
+          id?: string
+          latitude?: number
+          longitude?: number
+          updated_at?: string
+          updated_by?: string | null
+          wifi_verification_enabled?: boolean
+        }
+        Relationships: []
+      }
       notices: {
         Row: {
           created_at: string
@@ -183,6 +279,63 @@ export type Database = {
           year?: number | null
         }
         Relationships: []
+      }
+      smart_attendance_records: {
+        Row: {
+          created_at: string
+          device_info: string | null
+          id: string
+          ip_address: string | null
+          latitude: number | null
+          longitude: number | null
+          marked_at: string
+          session_id: string
+          student_id: string
+          user_id: string
+          verification_type: string
+        }
+        Insert: {
+          created_at?: string
+          device_info?: string | null
+          id?: string
+          ip_address?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          marked_at?: string
+          session_id: string
+          student_id: string
+          user_id: string
+          verification_type: string
+        }
+        Update: {
+          created_at?: string
+          device_info?: string | null
+          id?: string
+          ip_address?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          marked_at?: string
+          session_id?: string
+          student_id?: string
+          user_id?: string
+          verification_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "smart_attendance_records_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smart_attendance_records_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       student_faces: {
         Row: {
