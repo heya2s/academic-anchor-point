@@ -11,7 +11,10 @@ import {
   Upload,
   BarChart3,
   LogOut,
-  GraduationCap
+  GraduationCap,
+  Radio,
+  MapPinCheck,
+  Scan
 } from "lucide-react";
 import {
   Sidebar,
@@ -34,6 +37,7 @@ const studentMenuItems = [
   { title: "Dashboard", url: "/dashboard", icon: Home },
   { title: "Profile", url: "/profile", icon: User },
   { title: "Attendance", url: "/attendance", icon: Calendar },
+  { title: "Mark Attendance", url: "/mark-attendance", icon: Scan },
   { title: "Syllabus", url: "/syllabus", icon: BookOpen },
   { title: "PYQs", url: "/pyqs", icon: FileText },
   { title: "Notices", url: "/notices", icon: Bell },
@@ -44,6 +48,8 @@ const adminMenuItems = [
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
   { title: "Students", url: "/students", icon: Users },
   { title: "Attendance", url: "/attendance", icon: Calendar },
+  { title: "Smart Attendance", url: "/attendance-control", icon: Radio },
+  { title: "Campus Settings", url: "/campus-settings", icon: MapPinCheck },
   { title: "Upload Files", url: "/upload", icon: Upload },
   { title: "Notices", url: "/notices", icon: Bell },
   { title: "Settings", url: "/settings", icon: Settings },

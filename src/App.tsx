@@ -19,6 +19,9 @@ import Students from "./pages/Students";
 import FileUpload from "./pages/FileUpload";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
+import AttendanceControl from "./pages/AttendanceControl";
+import CampusSettings from "./pages/CampusSettings";
+import MarkAttendance from "./pages/MarkAttendance";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -45,6 +48,9 @@ const App = () => (
               <Route path="/upload" element={<DashboardLayout><FileUpload /></DashboardLayout>} />
               <Route path="/analytics" element={<DashboardLayout><Analytics /></DashboardLayout>} />
               <Route path="/settings" element={<DashboardLayout><Settings /></DashboardLayout>} />
+              <Route path="/attendance-control" element={<DashboardLayout><AttendanceControl /></DashboardLayout>} />
+              <Route path="/campus-settings" element={<DashboardLayout><CampusSettings /></DashboardLayout>} />
+              <Route path="/mark-attendance" element={<DashboardLayout><MarkAttendance /></DashboardLayout>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
