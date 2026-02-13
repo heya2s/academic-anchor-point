@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { User, Mail, IdCard, Users, Save, Edit } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import { User, Mail, IdCard, Users, Save, Edit, Lock } from "lucide-react";
 import { 
   validateLength, 
   validateStudentId, 
@@ -23,6 +25,11 @@ export default function Profile() {
     class: profile?.class || '',
   });
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [passwordData, setPasswordData] = useState({
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [passwordLoading, setPasswordLoading] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -79,6 +86,31 @@ export default function Profile() {
     });
     setValidationErrors({});
     setIsEditing(false);
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (passwordData.newPassword.length < 6) {
+      toast({ title: "Error", description: "Password must be at least 6 characters.", variant: "destructive" });
+      return;
+    }
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast({ title: "Error", description: "Passwords do not match.", variant: "destructive" });
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: passwordData.newPassword });
+      if (error) throw error;
+      toast({ title: "Password Updated", description: "Your password has been changed successfully." });
+      setPasswordData({ newPassword: '', confirmPassword: '' });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Failed to update password.", variant: "destructive" });
+    } finally {
+      setPasswordLoading(false);
+    }
   };
 
   return (
@@ -238,6 +270,49 @@ export default function Profile() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Change Password */}
+      <Card className="campus-card">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Lock className="h-5 w-5 text-primary" />
+            <span>Change Password</span>
+          </CardTitle>
+          <CardDescription>Update your account password</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handlePasswordChange} className="space-y-4 max-w-md">
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">New Password</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                value={passwordData.newPassword}
+                onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                placeholder="Enter new password"
+                minLength={6}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm New Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={passwordData.confirmPassword}
+                onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                placeholder="Confirm new password"
+                minLength={6}
+                required
+              />
+            </div>
+            <Button type="submit" disabled={passwordLoading} className="campus-button-primary">
+              <Lock className="h-4 w-4 mr-2" />
+              {passwordLoading ? 'Updating...' : 'Update Password'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }
