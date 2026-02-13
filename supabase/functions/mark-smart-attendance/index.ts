@@ -186,6 +186,35 @@ Deno.serve(async (req) => {
       })
     }
 
+    // Also insert into the main attendance table so it shows in the student panel
+    const today = new Date().toISOString().split('T')[0]
+    const currentTime = new Date().toLocaleTimeString('en-US', { hour12: false })
+    
+    // Check if attendance already exists for today in the main table
+    const { data: existingAttendance } = await supabaseAdmin
+      .from('attendance')
+      .select('id')
+      .eq('student_id', student.id)
+      .eq('date', today)
+      .maybeSingle()
+
+    if (!existingAttendance) {
+      const { error: attendanceError } = await supabaseAdmin
+        .from('attendance')
+        .insert({
+          student_id: student.id,
+          date: today,
+          status: 'Present',
+          time: currentTime,
+          marked_via: 'smart_attendance',
+        })
+
+      if (attendanceError) {
+        console.error('Attendance table insert error:', attendanceError)
+        // Don't fail the whole request - smart record was already saved
+      }
+    }
+
     return new Response(JSON.stringify({ 
       success: true, 
       message: 'Attendance marked successfully',
